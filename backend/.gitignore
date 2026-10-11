@@ -1,0 +1,5 @@
+# Preserve the cache directory placeholder while ignoring cached data.
+!/data_cache/
+/data_cache/*
+!/data_cache/.gitkeep
+/.ruff_cache/
