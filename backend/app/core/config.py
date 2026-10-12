@@ -29,6 +29,15 @@ class Settings(BaseSettings):
         "GOLDGUINEA": 8,
         "GOLDPETAL": 1,
     }
+    # Hackathon problem-statement values; NOT verified against MCX contract specs.
+    purity: dict[str, int] = {
+        "GOLDM": 995,
+        "GOLDTEN": 999,
+        "GOLDGUINEA": 999,
+        "GOLDPETAL": 999,
+    }
+    base_grams: float = Field(default=10, gt=0)
+    base_purity: float = Field(default=999, gt=0)
     bhavcopy_url: str = (
         "https://www.mcxindia.com/market-data/bhavcopy/GetDateWiseBhavCopy"
     )
