@@ -2,8 +2,8 @@
 
 FastAPI project scaffold for the MCX gold futures research dashboard. Requires
 Python 3.11 or newer. The initial environment was created with Python 3.14.
-Only the health endpoint is implemented. Data and analytics packages are placeholders;
-the SQLite URL and cache path are configuration only.
+The health endpoint and a manual Bhavcopy CSV loader are implemented. The HTTP
+downloader is disabled/unused because MCX blocks scripts. Analytics are not implemented.
 
 ## Set up (PowerShell)
 
@@ -75,3 +75,35 @@ ruff format .
 ```
 
 The cache contents and `.env` are ignored by Git; `data_cache/.gitkeep` is preserved.
+
+## Load manual Bhavcopy CSVs (PowerShell)
+
+Put files named `BhavCopyDateWise_DDMMYYYY.csv` in `backend/data_cache/raw_csv`.
+From `backend`, with the virtual environment activated:
+
+```powershell
+python -m app.data.loader --dir data_cache/raw_csv
+```
+
+The loader reads local files only. It validates every row's date against the
+filename before selecting configured `BHAVCOPY_SYMBOLS` futures. It stores all
+expiries in SQLite `bhav`, keyed by `(symbol, expiry_date, trade_date)`, and
+updates `data_health` by filename. Re-running updates existing keys without
+duplicates. Rejected files do not modify `bhav`; previously loaded keys remain.
+No continuous contract series or purity adjustment is created.
+
+Relative SQLite paths and CLI directories resolve from `backend`. The default
+database is `backend/auraxis.db`. Configuration in `app/core/config.py` includes
+`lot_grams` and `quote_grams`; environment overrides `LOT_GRAMS` and `QUOTE_GRAMS`
+use JSON dictionaries. Quote sizes are reserved for later normalization.
+
+Volume text stays unchanged. The loader compares its numeric part times 1000
+with lots times lot grams, logging differences without dropping rows. Zero-volume
+rows retain their settlement prices and are marked `has_trade=False`.
+
+CLI exit status is nonzero for rejected/error files or an empty input directory.
+If the existing pytest cache is inaccessible on Windows, tests can run without it:
+
+```powershell
+python -m pytest -p no:cacheprovider
+```
