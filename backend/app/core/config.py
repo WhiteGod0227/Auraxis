@@ -38,6 +38,18 @@ class Settings(BaseSettings):
     }
     base_grams: float = Field(default=10, gt=0)
     base_purity: float = Field(default=999, gt=0)
+    spread_pairs: list[str] = [
+        "GOLDTEN-GOLDPETAL",
+        "GOLDTEN-GOLDGUINEA",
+        "GOLDGUINEA-GOLDPETAL",
+        "GOLDM-GOLDTEN",
+        "GOLDM-GOLDGUINEA",
+        "GOLDM-GOLDPETAL",
+    ]
+    spread_window: int = Field(default=10, ge=1)
+    spread_min_periods: int = Field(default=5, ge=1)
+    spread_min_volume_grams: float = Field(default=0, ge=0)
+    spread_min_oi_grams: float = Field(default=0, ge=0)
     bhavcopy_url: str = (
         "https://www.mcxindia.com/market-data/bhavcopy/GetDateWiseBhavCopy"
     )
