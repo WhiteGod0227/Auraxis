@@ -172,12 +172,16 @@ def _parse(path: Path, settings: Settings, result: LoadResult) -> None:
         raise ValueError("Duplicate (symbol, expiry_date, trade_date) in CSV")
     warnings = []
     for row in frame.to_dict("records"):
-        number = re.match(r"^\s*([\d,]+(?:\.\d+)?)\s+\S+", row["volume_text"])
+        number = re.fullmatch(r"\s*([\d,]+(?:\.\d+)?)\s+(\S+)\s*", row["volume_text"])
         try:
             text_grams = Decimal(number[1].replace(",", "")) * 1000 if number else None
         except InvalidOperation:
             text_grams = None
-        if text_grams is None or text_grams != Decimal(int(row["volume_grams"])):
+        if (
+            text_grams is None
+            or number[2].upper() != "GRMS"
+            or text_grams != Decimal(int(row["volume_grams"]))
+        ):
             warning = (
                 f"volume mismatch: {row['symbol']} {row['expiry_date']} "
                 f"volume_text={row['volume_text']!r}, "

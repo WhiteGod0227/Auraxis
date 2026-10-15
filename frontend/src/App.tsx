@@ -7,6 +7,7 @@ import { CalendarPage } from '@/pages/CalendarPage'
 import { DashboardOverviewPage } from '@/pages/DashboardOverviewPage'
 import { DataHealthPage } from '@/pages/DataHealthPage'
 import { LandingPage } from '@/pages/LandingPage'
+import { LoginPage } from '@/pages/LoginPage'
 import { MethodologyPage } from '@/pages/MethodologyPage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
 import { RelativeValuePage } from '@/pages/RelativeValuePage'
@@ -16,6 +17,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<LandingPage />} />
+      <Route path="/login" element={<LoginPage />} />
       <Route path="/app" element={<AppLayout />}>
         <Route index element={<DashboardOverviewPage />} />
         <Route path="relative-value" element={<RelativeValuePage />} />

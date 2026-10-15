@@ -5,8 +5,12 @@ import globals from 'globals'
 import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
-  { ignores: ['dist', 'node_modules'] },
+  { ignores: ['dist', 'dist-deploy', 'node_modules'] },
   js.configs.recommended,
+  {
+    files: ['tests/**/*.mjs', 'scripts/**/*.mjs'],
+    languageOptions: { globals: globals.node },
+  },
   ...tseslint.configs.recommended,
   {
     files: ['**/*.{ts,tsx}'],

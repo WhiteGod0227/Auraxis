@@ -1,0 +1,5 @@
+# Local configuration only; no account, token or deployed project is embedded.
+# Set name to the actual Pages project name before an eventual deployment.
+name = "auraxis"
+pages_build_output_dir = "./dist-deploy"
+compatibility_date = "2026-10-15"

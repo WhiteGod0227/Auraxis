@@ -1,0 +1,151 @@
+.landing-crow-anchor {
+  width: 154px;
+  height: 150px;
+}
+.landing-crow {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 154px;
+  height: 150px;
+  transform-origin: top left;
+  pointer-events: none;
+  z-index: 5;
+  will-change: transform;
+  visibility: hidden;
+}
+.landing-crow-character {
+  width: 154px;
+  height: 150px;
+}
+.landing-crow[data-facing='left'] .landing-crow-character {
+  transform: scaleX(-1);
+}
+.crow-reaction {
+  position: absolute;
+  top: -12px;
+  left: 12px;
+  color: #ffe29a;
+  font-size: 38px;
+  font-weight: 700;
+  text-shadow: 0 2px 8px #090a0f;
+  animation: crowReaction 1.6s ease-in-out infinite;
+}
+.crow-flight-wing {
+  display: none;
+  z-index: 4;
+}
+.landing-crow.is-flying .crow-flight-wing {
+  display: block;
+  animation: crowFlap 0.32s ease-in-out infinite alternate;
+  transform-origin: 85px 110px;
+}
+.landing-crow.is-flying .crow-leg-left,
+.landing-crow.is-flying .crow-leg-right {
+  animation: none;
+  opacity: 0.35;
+}
+.landing-crow:not(.is-flying) .crow-leg-left,
+.landing-crow:not(.is-flying) .crow-leg-right {
+  animation: none;
+}
+.landing-crow.is-flying .crow-body > g {
+  opacity: 0;
+}
+.crow-building-wing {
+  transform-origin: 100px 90px;
+  animation: crowBuild 2.4s ease-in-out infinite;
+}
+.crow-scales {
+  transform-origin: 139px 61px;
+  animation: crowWeigh 3s ease-in-out infinite;
+}
+.crow-pointing-wing {
+  transform-origin: 95px 95px;
+  animation: crowPoint 2.2s ease-in-out infinite;
+}
+.crow-concerned .crow-head {
+  animation: crowWorry 2.4s ease-in-out infinite;
+}
+.crow-guarding .crow-head {
+  animation-duration: 3.5s;
+}
+@keyframes crowBuild {
+  0%,
+  100% {
+    transform: translateY(-8px) rotate(-8deg);
+  }
+  50%,
+  65% {
+    transform: translateY(19px) rotate(6deg);
+  }
+}
+@keyframes crowWeigh {
+  0%,
+  100% {
+    transform: rotate(-12deg);
+  }
+  50% {
+    transform: rotate(12deg);
+  }
+}
+@keyframes crowPoint {
+  0%,
+  100% {
+    transform: rotate(-5deg);
+  }
+  50% {
+    transform: rotate(10deg);
+  }
+}
+@keyframes crowWorry {
+  0%,
+  100% {
+    transform: rotate(0);
+  }
+  35% {
+    transform: rotate(-7deg);
+  }
+  65% {
+    transform: rotate(7deg);
+  }
+}
+.landing-crow.scene-problem .crow-head {
+  animation: crowCurious 1.8s ease-in-out infinite;
+}
+@keyframes crowFlap {
+  from {
+    transform: rotate(-35deg) scaleY(0.65);
+  }
+  to {
+    transform: rotate(28deg) scaleY(1);
+  }
+}
+@keyframes crowCurious {
+  0%,
+  100% {
+    transform: rotate(-9deg);
+  }
+  50% {
+    transform: rotate(9deg) translateY(3px);
+  }
+}
+@keyframes crowReaction {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .landing-crow {
+    will-change: auto;
+  }
+  .landing-crow svg,
+  .landing-crow g,
+  .landing-crow .crow-reaction {
+    animation: none !important;
+  }
+}

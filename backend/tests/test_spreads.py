@@ -71,8 +71,68 @@ def test_real_same_expiry_values(engine, settings):
     assert pd.notna(zero.spread_pct)
 
 
+@pytest.mark.parametrize(
+    "symbol,price", [("GOLDTEN", 0), ("GOLDTEN", -1), ("GOLDPETAL", 0)]
+)
+def test_nonpositive_price_is_not_a_spread_observation(engine, settings, symbol, price):
+    with engine.begin() as connection:
+        connection.execute(
+            update(bhav).where(bhav.c.symbol == symbol).values(close=price)
+        )
+    result = compute("GOLDTEN-GOLDPETAL", engine, settings).iloc[0]
+    assert result.reason == "invalid_price" and not result.tradable
+    assert pd.isna(result.spread_pct) and pd.isna(result.spread_abs)
+
+
+@pytest.mark.parametrize(
+    "column,reason",
+    [("volume_grams", "thin_volume"), ("open_interest_grams", "thin_oi")],
+)
+def test_nonfinite_liquidity_fails_core_eligibility(engine, settings, column, reason):
+    with engine.begin() as connection:
+        connection.execute(
+            update(bhav)
+            .where(bhav.c.symbol == "GOLDTEN")
+            .values({column: float("inf")})
+        )
+    result = compute("GOLDTEN-GOLDPETAL", engine, settings).iloc[0]
+    assert result.reason == reason and not result.tradable
+
+
+def test_invalid_interpolation_component_is_not_hidden(engine, settings):
+    with engine.begin() as connection:
+        connection.execute(
+            update(bhav)
+            .where(bhav.c.symbol == "GOLDTEN", bhav.c.expiry_date == date(2026, 11, 30))
+            .values(close=0)
+        )
+    result = compute("GOLDM-GOLDTEN", engine, settings).iloc[1]
+    assert result.reason == "invalid_price" and pd.isna(result.spread_pct)
+
+
+def test_nontradable_finite_history_policy_is_preserved():
+    from app.analytics.spreads import _rolling
+
+    frame = pd.DataFrame(
+        {
+            "expiry_a": [date(2026, 10, 30)] * 3,
+            "spread_pct": [1.0, 3.0, 5.0],
+            "tradable": [False, True, True],
+            "roll_mean": [float("nan")] * 3,
+            "roll_std": [float("nan")] * 3,
+            "z": [float("nan")] * 3,
+            "percentile": [float("nan")] * 3,
+        }
+    )
+    result = _rolling(frame, 2, 2)
+    assert result.loc[2, "roll_mean"] == 2
+    assert result.loc[2, "z"] == pytest.approx(3 / 2**0.5)
+
+
 def test_interpolation_and_no_bracket(engine, settings):
-    result = compute("GOLDM-GOLDTEN", engine, settings).set_index("expiry_a")
+    result = compute(
+        "GOLDM-GOLDTEN", engine, settings, use_purity_adjustment=True
+    ).set_index("expiry_a")
     november = result.loc[date(2026, 11, 5)]
     b = 149436 + 6 / 31 * (150834 - 149436)
     assert november.b_p10_999 == pytest.approx(b)
@@ -86,7 +146,7 @@ def test_interpolation_and_no_bracket(engine, settings):
 
 
 def test_nearest_and_purity_switch(engine, settings):
-    adjusted = compute("GOLDM-GOLDTEN", engine, settings)
+    adjusted = compute("GOLDM-GOLDTEN", engine, settings, use_purity_adjustment=True)
     nearest = compute("GOLDM-GOLDTEN", engine, settings, carry_adjusted=False)
     no_purity = compute("GOLDM-GOLDTEN", engine, settings, use_purity_adjustment=False)
     assert nearest.iloc[1].days_mismatch == -6

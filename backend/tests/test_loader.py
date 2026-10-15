@@ -150,3 +150,14 @@ def test_configurable_symbols_and_lot_size(settings, engine):
     result = load_file(SAMPLE, settings=settings, engine=engine)
     assert result.rows_kept == 6
     assert result.dataframe.iloc[0].volume_grams == 5000
+
+
+def test_matching_number_wrong_unit_is_warning(tmp_path, settings, engine, caplog):
+    frame = pd.read_csv(SAMPLE)
+    frame.loc[0, "Volume(In 000's)"] = "10.000 KGS"
+    path = tmp_path / SAMPLE.name
+    frame.to_csv(path, index=False)
+    result = load_file(path, settings=settings, engine=engine)
+    assert result.status == "ok" and result.rows_kept == 24
+    assert result.dataframe.iloc[0].volume_text == "10.000 KGS"
+    assert "volume mismatch" in caplog.text

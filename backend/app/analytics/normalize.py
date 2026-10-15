@@ -28,13 +28,14 @@ def normalize_prices(
     df: pd.DataFrame,
     price_cols: tuple[str, ...] = PRICE_COLS,
     *,
-    use_purity_adjustment: bool = True,
+    use_purity_adjustment: bool = False,
     settings: Settings | None = None,
 ) -> pd.DataFrame:
     """Return a copy with normalized prices; retain originals, flags and NaNs.
 
     With purity adjustment off, *_p10_999 equals *_p10_raw despite its name.
-    Defaults express Rs per 10 g of 999 purity. Configurable bases change those
+    Purity conversion is experimental and off by default. Explicit opt-in
+    expresses the assumed 999-purity scenario. Configurable bases change those
     units while preserving the public column names.
     """
     settings = settings or get_settings()
@@ -73,7 +74,7 @@ def normalize_prices(
 def cross_contract_snapshot(
     trade_date: date | str,
     *,
-    use_purity_adjustment: bool = True,
+    use_purity_adjustment: bool = False,
     settings: Settings | None = None,
     engine: Engine | None = None,
 ) -> pd.DataFrame:

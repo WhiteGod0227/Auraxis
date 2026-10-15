@@ -35,7 +35,7 @@ def prices():
 
 def test_hand_computed_values_and_no_mutation(prices, settings):
     original = prices.copy(deep=True)
-    result = normalize_prices(prices, settings=settings)
+    result = normalize_prices(prices, settings=settings, use_purity_adjustment=True)
     pd.testing.assert_frame_equal(prices, original)
     for column in PRICE_COLS:
         assert result[f"{column}_p10_raw"].tolist() == [
@@ -51,7 +51,7 @@ def test_hand_computed_values_and_no_mutation(prices, settings):
 
 
 def test_purity_switch_changes_only_goldm(prices, settings):
-    adjusted = normalize_prices(prices, settings=settings)
+    adjusted = normalize_prices(prices, settings=settings, use_purity_adjustment=True)
     raw = normalize_prices(prices, settings=settings, use_purity_adjustment=False)
     for column in PRICE_COLS:
         assert raw[f"{column}_p10_999"].equals(raw[f"{column}_p10_raw"])
@@ -62,7 +62,7 @@ def test_purity_switch_changes_only_goldm(prices, settings):
 
 def test_nan_prices(prices, settings):
     prices.loc[0, list(PRICE_COLS)] = np.nan
-    result = normalize_prices(prices, settings=settings)
+    result = normalize_prices(prices, settings=settings, use_purity_adjustment=True)
     for column in PRICE_COLS:
         assert pd.isna(result.loc[0, f"{column}_p10_raw"])
         assert pd.isna(result.loc[0, f"{column}_p10_999"])
@@ -78,7 +78,7 @@ def test_configurable_base_and_contract(prices, settings):
     settings.quote_grams["GOLDPETAL"] = 2
     settings.base_grams = 20
     settings.base_purity = 995
-    result = normalize_prices(prices, settings=settings)
+    result = normalize_prices(prices, settings=settings, use_purity_adjustment=True)
     assert result.loc[0, "close_p10_raw"] == 150020
     assert result.loc[0, "close_p10_999"] == pytest.approx(150020 * 995 / 999)
 

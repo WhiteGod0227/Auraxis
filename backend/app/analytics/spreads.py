@@ -43,11 +43,25 @@ def _date(value):
 def _liquidity(legs, volume, oi):
     if any(not bool(row.has_trade) for row in legs):
         return "no_trade"
-    if any(row.volume_grams < volume for row in legs):
+    if any(
+        pd.isna(row.volume_grams)
+        or not isfinite(row.volume_grams)
+        or row.volume_grams < volume
+        for row in legs
+    ):
         return "thin_volume"
-    if any(row.open_interest_grams < oi for row in legs):
+    if any(
+        pd.isna(row.open_interest_grams)
+        or not isfinite(row.open_interest_grams)
+        or row.open_interest_grams < oi
+        for row in legs
+    ):
         return "thin_oi"
     return ""
+
+
+def _positive_price(value):
+    return pd.notna(value) and isfinite(value) and value > 0
 
 
 def _build(frame, pair, carry, volume, oi):
@@ -104,6 +118,10 @@ def _build(frame, pair, carry, volume, oi):
                     row["reason"] = "leg_no_trade"
                     rows.append(row)
                     continue
+                if any(not _positive_price(b.close_p10_999) for b in used):
+                    row["reason"] = "invalid_price"
+                    rows.append(row)
+                    continue
                 # Interpolate in calendar days using only this trade_date's quotes.
                 weight = (
                     0
@@ -140,10 +158,10 @@ def _build(frame, pair, carry, volume, oi):
             ):
                 row["reason"] = "missing_price"
             else:
-                row["spread_abs"] = a_price - b_price
-                if b_price <= 0:
+                if a_price <= 0 or b_price <= 0:
                     row["reason"] = "invalid_price"
                 else:
+                    row["spread_abs"] = a_price - b_price
                     row["spread_pct"] = 100 * (a_price / b_price - 1)
                     row["reason"] = _liquidity([a, *used], volume, oi)
                     row["tradable"] = not row["reason"]
@@ -185,7 +203,7 @@ def compute_spreads(
     carry_adjusted=True,
     min_volume_grams=None,
     min_oi_grams=None,
-    use_purity_adjustment=True,
+    use_purity_adjustment=False,
     *,
     settings: Settings | None = None,
     engine: Engine | None = None,

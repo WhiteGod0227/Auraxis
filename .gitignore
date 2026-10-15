@@ -1,6 +1,8 @@
 # Node
 node_modules/
 dist/
+dist-deploy/
+deployment-private/
 
 # Python
 __pycache__/
@@ -11,6 +13,8 @@ __pycache__/
 # SQLite
 *.db
 *.sqlite
+*.sqlite3
+*.sqlite3-*
 
 # Raw data cache
 backend/data_cache/
@@ -27,3 +31,24 @@ backend/data_cache/
 .DS_Store
 .vscode/
 .idea/
+
+# Local database sidecars, caches and private runtime output
+*.db-*
+*.sqlite-*
+*.journal
+.ruff_cache/
+*.tsbuildinfo
+*.log
+logs/
+coverage/
+.coverage
+htmlcov/
+# Browser captures can contain private details and market payloads.
+docs/evidence/
+# Redistribution permission unresolved; generate locally if authorized.
+frontend/public/snapshots/
+**/browser-profile/
+**/chrome-profile/
+**/debug-profile/
+.tmp/
+tmp/

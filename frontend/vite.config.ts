@@ -5,6 +5,9 @@ import tailwindcss from '@tailwindcss/vite'
 import { defineConfig } from 'vite'
 
 export default defineConfig({
+  // A running preview may have tabs still using the preceding build's chunks.
+  // Keep those assets across local rebuilds instead of breaking lazy imports.
+  build: { emptyOutDir: false },
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {

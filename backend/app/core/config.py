@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     app_name: str = "Auraxis"
     database_url: str = "sqlite:///./auraxis.db"
     data_cache_dir: Path = Path("./data_cache")
+    auth_database_path: Path = Path("./auth.sqlite3")
+    auth_cookie_secure: bool = False  # Local HTTP only; enable for hosted HTTPS.
+    auth_session_hours: int = Field(default=24, ge=1, le=720)
     lot_grams: dict[str, int] = {
         "GOLDM": 100,
         "GOLDTEN": 10,
@@ -29,7 +32,10 @@ class Settings(BaseSettings):
         "GOLDGUINEA": 8,
         "GOLDPETAL": 1,
     }
-    # Hackathon problem-statement values; NOT verified against MCX contract specs.
+    # Official July/August-2026 MCX PDFs confirm delivery qualities below.
+    # Their use as cross-product quoted-price multipliers remains provisional:
+    # delivery quality is not by itself proof of price-basis equivalence.
+    # Preserve the hackathon default rather than silently changing analytics.
     purity: dict[str, int] = {
         "GOLDM": 995,
         "GOLDTEN": 999,
@@ -38,6 +44,7 @@ class Settings(BaseSettings):
     }
     base_grams: float = Field(default=10, gt=0)
     base_purity: float = Field(default=999, gt=0)
+    api_min_volume_grams: float = Field(default=2000, ge=0, allow_inf_nan=False)
     spread_pairs: list[str] = [
         "GOLDTEN-GOLDPETAL",
         "GOLDTEN-GOLDGUINEA",
