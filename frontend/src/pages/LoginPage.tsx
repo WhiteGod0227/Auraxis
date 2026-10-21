@@ -31,7 +31,7 @@ export function LoginPage() {
         await auth.signup(String(values.get('name') ?? ''), email, password)
       else await auth.login(email, password)
       form.reset()
-      navigate('/app', { replace: true })
+      navigate('/', { replace: true })
     } catch (error) {
       setMessage(
         error instanceof Error
@@ -63,6 +63,17 @@ export function LoginPage() {
               aria-hidden={signup !== back}
               inert={signup !== back}
               onSubmit={submit}
+              onInvalid={(event) => {
+                const input = event.target
+                if (!(input instanceof HTMLInputElement)) return
+                setMessage(
+                  input.validity.valueMissing
+                    ? `Please enter your ${input.name}.`
+                    : input.name === 'email'
+                      ? 'Please enter a valid email address.'
+                      : input.validationMessage,
+                )
+              }}
               method="post"
               aria-busy={busy}
               aria-describedby={message ? 'auth-error' : undefined}
@@ -119,6 +130,11 @@ export function LoginPage() {
               <button className="btn" type="submit" disabled={busy}>
                 {busy ? 'Please wait…' : back ? 'Create account' : 'Log in'}
               </button>
+              {message && signup === back && (
+                <p className="auth-message" id="auth-error" role="alert">
+                  {message}
+                </p>
+              )}
               <p className="switch">
                 {back ? 'Already have an account?' : 'New to Auraxis?'}{' '}
                 <button
@@ -140,11 +156,6 @@ export function LoginPage() {
           ))}
         </div>
       </div>
-      {message && (
-        <p className="auth-message" id="auth-error" role="alert">
-          {message}
-        </p>
-      )}
       <Link className="auth-demo-link" to="/app">
         Explore the demo without signing in <span aria-hidden="true">→</span>
       </Link>
