@@ -1,3 +1,4 @@
+import DataContext from '@/components/DataContext'
 import { lazy, Suspense, useCallback, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { api } from '@/lib/api'
@@ -6,6 +7,15 @@ import { selectExpiry, maturityMatchingChange } from '@/lib/relativeValue'
 import { currency, formatDate, number } from '@/lib/format'
 import DiagnosticLabel from '@/components/DiagnosticLabel'
 import CrowLoader from '@/components/CrowLoader'
+import ComparisonExplanation from '@/components/ComparisonExplanation'
+import SaveResearch from '@/components/SaveResearch'
+import { useWorkspace } from '@/lib/workspaceContext'
+import {
+  relativeConfiguration,
+  researchCandidate,
+  restoredExpiry,
+  selection,
+} from '@/lib/workspaces'
 import type { DashboardContext } from '@/layouts/AppLayout'
 const SpreadCharts = lazy(() => import('@/components/SpreadCharts'))
 const pairs = [
@@ -21,21 +31,39 @@ const reading = (value: number | null | undefined, money = false) =>
     ? (money ? currency : number).format(value)
     : 'Unavailable'
 export function RelativeValuePage() {
-  const { meta } = useOutletContext<DashboardContext>()
-  const [pair, setPair] = useState(pairs[0])
-  const [window, setWindow] = useState(10)
-  const [purity, setPurity] = useState(false)
-  const [carry, setCarry] = useState(true)
-  const [preferred, setPreferred] = useState<string>()
+  const workspace = useWorkspace()
+  const saved =
+    workspace?.configuration.kind === 'relative_value'
+      ? workspace.configuration
+      : undefined
+  const { meta, relativeValue, setRelativeValue } =
+    useOutletContext<DashboardContext>()
+  const [restored, setRestored] = useState(() =>
+    saved
+      ? {
+          pair: saved.query.pair,
+          window: saved.query.window!,
+          purity: saved.query.purity!,
+          carry: saved.query.carry_adjusted!,
+          preferred:
+            saved.expiry.mode === 'explicit' ? saved.expiry.value : undefined,
+        }
+      : undefined,
+  )
+  const { pair, window, purity, carry, preferred } = restored ?? relativeValue
+  const remember = (values: Partial<typeof relativeValue>) =>
+    saved
+      ? setRestored((previous) => ({ ...previous!, ...values }))
+      : setRelativeValue((previous) => ({ ...previous, ...values }))
   const goldm = pair.startsWith('GOLDM-')
-  const actualCarry = goldm ? carry : true
+  const actualCarry = goldm || saved ? carry : true
   const load = useCallback(
     (signal: AbortSignal) =>
       api.spreads(
-        { pair, window, purity, carry_adjusted: actualCarry },
+        { ...saved?.query, pair, window, purity, carry_adjusted: actualCarry },
         signal,
       ),
-    [pair, window, purity, actualCarry],
+    [saved, pair, window, purity, actualCarry],
   )
   const resource = useResource(load)
   const comparison = useResource(
@@ -43,26 +71,44 @@ export function RelativeValuePage() {
       async (signal: AbortSignal) => {
         if (!goldm) return { data: null, source: 'API' as const }
         return api.spreads(
-          { pair, window, purity, carry_adjusted: !actualCarry },
+          {
+            ...saved?.query,
+            pair,
+            window,
+            purity,
+            carry_adjusted: !actualCarry,
+          },
           signal,
         )
       },
-      [goldm, pair, window, purity, actualCarry],
+      [saved, goldm, pair, window, purity, actualCarry],
     ),
   )
   const response = resource.response
   const data = response?.data
   const selected = data
-    ? selectExpiry(data.series, data.data_as_of, preferred)
+    ? restoredExpiry(
+        data.series.map((s) => s.expiry_a),
+        saved ? (preferred ? selection(preferred) : saved.expiry) : undefined,
+        () => selectExpiry(data.series, data.data_as_of, preferred),
+      )
     : undefined
   const series = data?.series.find((s) => s.expiry_a === selected)
   const latest = series?.latest
   const other = comparison.response?.data?.series
     .find((s) => s.expiry_a === selected)
     ?.rows.find((r) => r.trade_date === latest?.trade_date)
-  const change = latest
-    ? maturityMatchingChange(latest, other, actualCarry)
-    : null
+  const compatibleSource =
+    response &&
+    comparison.response &&
+    response.source === comparison.response.source &&
+    data?.data_as_of === comparison.response.data?.data_as_of &&
+    (response.source !== 'Offline snapshot' ||
+      response.generatedAt === comparison.response.generatedAt)
+  const change =
+    latest && compatibleSource
+      ? maturityMatchingChange(latest, other, actualCarry)
+      : null
   const config = data?.configuration
   const offlineUnavailable = resource.errorKind === 'offline-unavailable'
   const [a, b] = pair.split('-')
@@ -73,11 +119,42 @@ export function RelativeValuePage() {
           <p className="eyebrow">FIXED-EXPIRY DIAGNOSTICS</p>
           <h1>Relative Value</h1>
           <p className="page-description">
-            Compare normalized settlements within one expiry history. Historical
-            observations, not executable prices or trading signals.
+            Compare gold futures on a common quote-size basis.
           </p>
         </div>
       </div>
+      {response && (
+        <DataContext
+          date={data?.data_as_of}
+          source={response.source}
+          experimental={config?.use_purity_adjustment}
+        />
+      )}
+      <SaveResearch
+        selectionLabel={
+          data && selected
+            ? `${data.configuration.pair} · ${formatDate(selected)}`
+            : undefined
+        }
+        currentContext={
+          response
+            ? { data_as_of: response.data.data_as_of, source: response.source }
+            : undefined
+        }
+        candidate={researchCandidate(
+          response,
+          resource.loading,
+          data && series
+            ? relativeConfiguration(data, preferred ? selected : undefined)
+            : undefined,
+        )}
+      />
+      {saved && data && !series && (
+        <p className="error-notice" role="alert">
+          Saved expiry is unavailable for these settings. No other expiry has
+          been substituted. Select another expiry explicitly to continue.
+        </p>
+      )}
       {latest && response && (
         <section
           className="panel rv-result-summary"
@@ -95,14 +172,6 @@ export function RelativeValuePage() {
               : 'Unavailable'}
             ).
           </p>
-          <p>
-            {formatDate(latest.trade_date)} · {response.source} · Liquidity
-            check: {latest.liquidity_ok ? 'Passed' : 'Failed'} ·{' '}
-            {latest.analytics_only
-              ? 'Analytics only'
-              : 'Same expiry; fills not guaranteed'}
-            .
-          </p>
           {goldm && (
             <p>
               Maturity matching {actualCarry ? 'on' : 'off'}. Change from
@@ -113,7 +182,7 @@ export function RelativeValuePage() {
                   ? 'Unavailable for this exact observation'
                   : `${reading(change, true)} per 10 g (on minus off)`}
               .
-              {comparison.response && (
+              {comparison.response?.source === 'Offline snapshot' && (
                 <> Comparison source: {comparison.response.source}.</>
               )}
               {comparison.error && (
@@ -127,16 +196,13 @@ export function RelativeValuePage() {
               )}
             </p>
           )}
-          <p>
-            {latest.reason || latest.liquidity_reason ? (
+          {(latest.reason || latest.liquidity_reason) && (
+            <p>
               <DiagnosticLabel
                 code={latest.reason || latest.liquidity_reason}
               />
-            ) : (
-              'No reason provided'
-            )}{' '}
-            · Purity adjustment {purity ? 'enabled (experimental)' : 'off'}.
-          </p>
+            </p>
+          )}
         </section>
       )}
       <section className="panel rv-controls" aria-label="Comparison controls">
@@ -146,8 +212,10 @@ export function RelativeValuePage() {
             aria-label="Pair"
             value={pair}
             onChange={(e) => {
-              setPreferred(selected ?? preferred)
-              setPair(e.target.value)
+              remember({
+                preferred: selected ?? preferred,
+                pair: e.target.value,
+              })
             }}
           >
             {pairs.map((p) => (
@@ -161,7 +229,7 @@ export function RelativeValuePage() {
             aria-label="Fixed expiry"
             value={selected ?? ''}
             disabled={!data?.series.length}
-            onChange={(e) => setPreferred(e.target.value)}
+            onChange={(e) => remember({ preferred: e.target.value })}
           >
             {!selected && <option value="">Unavailable</option>}
             {data?.series.map((s) => (
@@ -177,8 +245,10 @@ export function RelativeValuePage() {
             aria-label="Window"
             value={window}
             onChange={(e) => {
-              setPreferred(selected ?? preferred)
-              setWindow(Number(e.target.value))
+              remember({
+                preferred: selected ?? preferred,
+                window: Number(e.target.value),
+              })
             }}
           >
             {Array.from({ length: 26 }, (_, i) => i + 5).map((n) => (
@@ -191,8 +261,10 @@ export function RelativeValuePage() {
             type="checkbox"
             checked={purity}
             onChange={(e) => {
-              setPreferred(selected ?? preferred)
-              setPurity(e.target.checked)
+              remember({
+                preferred: selected ?? preferred,
+                purity: e.target.checked,
+              })
             }}
           />
           Purity adjustment (experimental)
@@ -203,19 +275,37 @@ export function RelativeValuePage() {
               type="checkbox"
               checked={carry}
               onChange={(e) => {
-                setPreferred(selected ?? preferred)
-                setCarry(e.target.checked)
+                remember({
+                  preferred: selected ?? preferred,
+                  carry: e.target.checked,
+                })
               }}
             />
             Maturity matching
           </label>
         )}
-        <p className="rv-control-note">
-          Minimum periods: 5. Default liquidity thresholds: volume 2,000 g; open
-          interest 0 g. All expiries fetched; selection is local. Initial expiry
-          is the earliest at least 3 calendar days after historical data_as_of,
-          otherwise the latest available.
-        </p>
+        <details className="applied-settings">
+          <summary>Applied settings</summary>
+          <dl className="settings-list">
+            <dt>Minimum observations</dt>
+            <dd>{config?.min_periods ?? saved?.query.min_periods ?? 5}</dd>
+            <dt>Minimum volume</dt>
+            <dd>
+              {config?.min_volume_grams ??
+                saved?.query.min_volume_grams ??
+                2000}{' '}
+              g
+            </dd>
+            <dt>Minimum open interest</dt>
+            <dd>{config?.min_oi_grams ?? saved?.query.min_oi_grams ?? 0} g</dd>
+            <dt>Expiry filter</dt>
+            <dd>{config?.expiry ?? saved?.query.expiry ?? 'All expiries'}</dd>
+          </dl>
+          <p>
+            The initial selection is the earliest expiry at least three calendar
+            days after the historical data date, otherwise the latest available.
+          </p>
+        </details>
       </section>
       {resource.loading && (
         <div className="panel">
@@ -230,7 +320,7 @@ export function RelativeValuePage() {
               : resource.error}
           </p>
           {offlineUnavailable && (
-            <button className="button" onClick={() => setWindow(10)}>
+            <button className="button" onClick={() => remember({ window: 10 })}>
               Restore default window (10)
             </button>
           )}
@@ -239,52 +329,34 @@ export function RelativeValuePage() {
           </button>
         </div>
       )}
+      <ComparisonExplanation
+        resource={resource}
+        row={latest}
+        counterpart={comparison}
+        counterpartRow={other}
+      />
       {response && data && (
         <>
-          <section className="basis-note">
-            <div>
-              <span
-                className={`source-badge ${response.source === 'Offline snapshot' ? 'offline' : ''}`}
-              >
-                {response.source}
-              </span>
-              <p>
-                Historical data as of {formatDate(data.data_as_of)}. Prototype
-                window:{' '}
-                {meta.response?.data.trading_session_count ?? 'Unavailable'}{' '}
-                sessions. Data window:{' '}
-                {formatDate(data.data_window.first_trade_date)} to{' '}
-                {formatDate(data.data_window.last_trade_date)}.
-              </p>
-              <details>
-                <summary>Applied configuration details</summary>
-                <p>
-                  Applied: {config?.pair}; window {config?.window}; min_periods{' '}
-                  {config?.min_periods}; purity{' '}
-                  {String(config?.use_purity_adjustment)}; carry_adjusted{' '}
-                  {String(config?.carry_adjusted)}; minimum volume{' '}
-                  {config?.min_volume_grams} g; minimum open interest{' '}
-                  {config?.min_oi_grams} g. Expiry/start/end filters:{' '}
-                  {config?.expiry ?? 'all'} / {config?.start ?? 'all'} /{' '}
-                  {config?.end ?? 'all'}.
-                </p>
-              </details>
-              <p>
-                {config?.use_purity_adjustment
-                  ? 'Purity adjustment enabled'
-                  : 'Purity adjustment disabled'}
-              </p>
-              <p>
-                Normalization: {data.normalization.unit};{' '}
-                {config?.use_purity_adjustment
-                  ? data.normalization.basis
-                  : 'quote-size conversion only; purity adjustment off'}
-                . Purity verification:{' '}
-                {data.normalization.purity_verification_status}. Purities are
-                problem-statement assumptions, not verified MCX specifications.
-              </p>
-            </div>
-          </section>
+          <details className="calculation-details">
+            <summary>Calculation basis and data window</summary>
+            <p>
+              {data.normalization.unit};{' '}
+              {config?.use_purity_adjustment
+                ? data.normalization.basis
+                : 'quote-size conversion; purity adjustment off'}
+              . Purity assumptions remain unverified.
+            </p>
+            <p>
+              {formatDate(data.data_window.first_trade_date)} to{' '}
+              {formatDate(data.data_window.last_trade_date)} ·{' '}
+              {meta.response?.data.trading_session_count ?? 'Unavailable'}{' '}
+              sessions.
+            </p>
+            <p>
+              Requested dates: {config?.start ?? 'Start of data'} to{' '}
+              {config?.end ?? 'End of data'}.
+            </p>
+          </details>
           {!series && (
             <div className="panel empty-state">
               {data.message ??
@@ -301,28 +373,20 @@ export function RelativeValuePage() {
                   </span>
                 </div>
                 <p className="section-description">
-                  Observation: {formatDate(latest.trade_date)}.{' '}
-                  {series.description}
+                  Observation: {formatDate(latest.trade_date)}.
                 </p>
                 {goldm && (
-                  <p className="rv-analytics">
-                    <strong>Analytics only</strong>. Liquidity passing does not
-                    override this status. Interpolated prices are synthetic
-                    comparison values, not executable fills.
+                  <p className="quality-notice">
+                    Analytics only · synthetic maturity matching, not executable
+                    prices.
                   </p>
                 )}
-                {!goldm && (
-                  <p className="section-description">
-                    {latest.executable_pair
-                      ? 'Same-expiry structural eligibility'
-                      : 'Analytics only'}
-                    ; same-expiry structural eligibility is not a fill
-                    guarantee.
-                  </p>
-                )}
-                <DiagnosticLabel code={latest.comparison_type} />
                 <details>
-                  <summary>Technical eligibility</summary>
+                  <summary>Eligibility details</summary>
+                  <p>
+                    Source trade flag:{' '}
+                    {latest.source_tradable ? 'Passed' : 'Failed'}.
+                  </p>
                   <p>
                     executable_pair={String(latest.executable_pair)};
                     comparison_type={latest.comparison_type}
@@ -383,18 +447,6 @@ export function RelativeValuePage() {
                     </div>
                   ))}
                 </div>
-                <p>
-                  Positive spread means A's normalized price exceeds B. Positive
-                  z means the spread is above its own historical mean. Neither
-                  implies guaranteed profit.
-                </p>
-                <p>
-                  <strong>
-                    Liquidity check: {latest.liquidity_ok ? 'Passed' : 'Failed'}
-                  </strong>
-                  . {latest.liquidity_reason || 'No reason provided'}{' '}
-                  {latest.reason}
-                </p>
                 <details>
                   <summary>Source eligibility details</summary>
                   <p>
@@ -402,23 +454,6 @@ export function RelativeValuePage() {
                     {latest.source_tradable ? 'Passed' : 'Failed'}.
                   </p>
                 </details>
-                <p>
-                  B{' '}
-                  {latest.expiry_b_used.length > 1
-                    ? 'interpolation bracket'
-                    : 'actual expiry'}
-                  :{' '}
-                  {latest.expiry_b_used.length
-                    ? latest.expiry_b_used
-                        .map(
-                          (date, i) =>
-                            `${formatDate(date)} (${latest.days_mismatch[i] >= 0 ? '+' : ''}${latest.days_mismatch[i]} days)`,
-                        )
-                        .join(' / ')
-                    : 'Unavailable'}
-                  . Comparison:{' '}
-                  <DiagnosticLabel code={latest.comparison_type} />
-                </p>
                 <details>
                   <summary>Maturity calculation details</summary>
                   <p>{data.maturity_definition}</p>
@@ -435,11 +470,6 @@ export function RelativeValuePage() {
               </Suspense>
               <section className="panel">
                 <h2>Observation quality</h2>
-                <p className="section-description">
-                  Every returned observation for expiry{' '}
-                  {formatDate(series.expiry_a)}. Liquidity status is not trade
-                  availability. Settlement/close is not an executable price.
-                </p>
                 <div
                   className="table-scroll"
                   tabIndex={0}

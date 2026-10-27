@@ -1,3 +1,4 @@
+import DataContext from '@/components/DataContext'
 import { useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { api } from '@/lib/api'
@@ -35,50 +36,30 @@ export function DataHealthPage() {
           <p className="eyebrow">INGESTION RECORDS & OBSERVATION QUALITY</p>
           <h1>Data Health</h1>
           <p className="page-description">
-            Inspect recorded ingestion results and observation quality.
-            Successful parsing does not establish complete market-data validity.
+            Review imported data and observation quality.
           </p>
         </div>
       </div>
-      <section className="panel dh-meta">
-        <h2>Historical dataset metadata</h2>
-        {meta.response && (
-          <span
-            className={`source-badge ${meta.response.source === 'Offline snapshot' ? 'offline' : ''}`}
-          >
-            {meta.response.source}
-          </span>
-        )}
-        {meta.loading && <p role="status">Loading metadata...</p>}
-        {meta.error && (
-          <div className="error-notice" role="alert">
-            <p>Metadata unavailable: {meta.error}</p>
-            <button className="button" onClick={meta.retry}>
-              Retry metadata
-            </button>
-          </div>
-        )}
+      {meta.error && (
+        <p className="error-notice">
+          Data context unavailable.{' '}
+          <button className="button" onClick={meta.retry}>
+            Retry
+          </button>
+        </p>
+      )}
+      <details className="data-details">
+        <summary>Dataset details</summary>
         {historical ? (
-          <>
-            <p>
-              Historical window: {formatDate(historical.first)} to{' '}
-              {formatDate(historical.last)}; data as of{' '}
-              {formatDate(historical.asOf)}. Sessions: {historical.sessions}.
-            </p>
-            <p>
-              Purity verification: <strong>{historical.purity}</strong>.
-              Close/settlement is not an executable quote.
-            </p>
-          </>
+          <p>
+            {formatDate(historical.first)} to {formatDate(historical.last)} ·{' '}
+            {historical.sessions} sessions. Purity assumptions:{' '}
+            {historical.purity}.
+          </p>
         ) : (
-          !meta.loading && (
-            <p>
-              Historical window, session metadata and purity metadata:
-              unavailable.
-            </p>
-          )
+          <p>Dataset details unavailable.</p>
         )}
-      </section>
+      </details>
       {health.loading && (
         <div className="panel">
           <CrowLoader label="Checking data health…" />
@@ -96,19 +77,9 @@ export function DataHealthPage() {
         <>
           <section className="panel dh-summary">
             <div className="section-heading">
-              <h2>Recorded counts</h2>
-              <span
-                className={`source-badge ${response.source === 'Offline snapshot' ? 'offline' : ''}`}
-              >
-                {response.source}
-              </span>
+              <h2>Data summary</h2>
+              <DataContext date={data.data_as_of} source={response.source} />
             </div>
-            <p>
-              Data Health historical data as of {formatDate(data.data_as_of)}.
-              Applied minimum volume: {number.format(data.min_volume_grams)}{' '}
-              grams; diagnostic limit: {data.diagnostic_limit}. No custom
-              thresholds are applied.
-            </p>
             {data.message && <p>{data.message}</p>}
             <div className="rv-readings">
               {[
@@ -159,25 +130,35 @@ export function DataHealthPage() {
                       ? number.format(value)
                       : 'Unavailable'}
                   </strong>
-                  <small>{String(definition)}</small>
+                  <span className="sr-only">{String(definition)}</span>
                 </div>
               ))}
             </div>
-            <p>
-              These are retained processing results keyed by filename, not
-              unique physical files or a history of processing attempts.
-              Zero-volume, no-trade and thin-volume counts overlap; they are
-              never added into a combined issue count.
-            </p>
-            <div className="dh-status-counts">
-              {Object.entries(data.file_status_counts).map(
-                ([status, count]) => (
-                  <span className="badge" key={status}>
-                    {status}: {count}
-                  </span>
-                ),
-              )}
-            </div>
+            <details>
+              <summary>Count definitions</summary>
+              <p>
+                Processing records are keyed by filename; they are not a history
+                of import attempts. Zero-volume, no-trade and thin-volume counts
+                can overlap and must not be added together.
+              </p>
+              <p>
+                Thin volume means below {number.format(data.min_volume_grams)}{' '}
+                g, including zero volume. Missing diagnostic counts remain
+                unavailable, not zero.
+              </p>
+            </details>
+            <details>
+              <summary>Import status breakdown</summary>
+              <div className="dh-status-counts">
+                {Object.entries(data.file_status_counts).map(
+                  ([status, count]) => (
+                    <span className="badge" key={status}>
+                      {humanize(status)}: {count}
+                    </span>
+                  ),
+                )}
+              </div>
+            </details>
             {!data.file_records_available && (
               <p className="dh-unavailable">
                 Recorded processing statuses unavailable.
@@ -186,8 +167,7 @@ export function DataHealthPage() {
             {(data.file_status_counts.error ?? 0) > 0 && (
               <p className="dh-unavailable">
                 Recorded error statuses: {data.file_status_counts.error}.
-                Detailed causes are unavailable: free-form notes are withheld.
-                No cause or recovery recommendation is inferred.
+                Detailed causes were not retained.
               </p>
             )}
           </section>
@@ -204,46 +184,45 @@ export function DataHealthPage() {
             page={data.recorded_files}
           />
           <section className="panel dh-checks">
-            <h2>Diagnostic availability</h2>
-            <p>Unavailable checks are not checks with zero issues.</p>
-            <div
-              className="table-scroll dh-table-scroll"
-              tabIndex={0}
-              role="region"
-              aria-label="Diagnostic availability"
-            >
-              <table>
-                <thead>
-                  <tr>
-                    <th>Check</th>
-                    <th>Availability</th>
-                    <th>API reason</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {Object.entries(data.unavailable_diagnostics).map(
-                    ([name, diagnostic]) => (
-                      <tr key={name}>
-                        <td>{humanize(name)}</td>
-                        <td>
-                          {diagnostic.available
-                            ? 'Available (no issue count supplied)'
-                            : 'Unavailable'}
-                        </td>
-                        <td className="rv-reasons">{diagnostic.reason}</td>
-                      </tr>
-                    ),
-                  )}
-                </tbody>
-              </table>
-            </div>
+            <p>Unavailable checks are not zero issues.</p>
+            <details>
+              <summary>Diagnostic availability</summary>
+              <div
+                className="table-scroll dh-table-scroll"
+                tabIndex={0}
+                role="region"
+                aria-label="Diagnostic availability"
+              >
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Check</th>
+                      <th>Availability</th>
+                      <th>Reason</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.entries(data.unavailable_diagnostics).map(
+                      ([name, diagnostic]) => (
+                        <tr key={name}>
+                          <td>{humanize(name)}</td>
+                          <td>
+                            {diagnostic.available
+                              ? 'Available (no issue count supplied)'
+                              : 'Unavailable'}
+                          </td>
+                          <td className="rv-reasons">{diagnostic.reason}</td>
+                        </tr>
+                      ),
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </details>
           </section>
           <section className="panel dh-quality">
             <h2>Global observation counts by product</h2>
-            <p>
-              Counts come from complete API aggregates, not the truncated
-              diagnostic lists. Columns overlap.
-            </p>
+            <p>Counts cover all stored observations. Categories may overlap.</p>
             <div
               className="table-scroll dh-table-scroll"
               tabIndex={0}
@@ -255,7 +234,7 @@ export function DataHealthPage() {
                   <tr>
                     <th>Product</th>
                     <th>Zero volume</th>
-                    <th>has_trade=False</th>
+                    <th>No recorded trade</th>
                     <th>Thin volume</th>
                   </tr>
                 </thead>
@@ -288,7 +267,7 @@ export function DataHealthPage() {
             </div>
             <div className="rv-controls dh-filters">
               <label>
-                Product - returned lists only
+                Filter returned observations
                 <select
                   aria-label="Returned-list product"
                   value={product}
@@ -301,7 +280,7 @@ export function DataHealthPage() {
                 </select>
               </label>
               <label>
-                Date order - returned lists only
+                Date order
                 <select
                   aria-label="Returned-list date order"
                   value={descending ? 'descending' : 'ascending'}

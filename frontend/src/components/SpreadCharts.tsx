@@ -21,10 +21,17 @@ export default function SpreadCharts({ series }: { series: SpreadSeries }) {
         <section className="panel" key={String(isZ)}>
           <h2>{isZ ? 'Z-score history' : 'Spread history'}</h2>
           <p className="section-description">
-            {isZ
-              ? 'Dimensionless z; +1 and -1 are simulation default entry references. Crossings are not trade recommendations.'
-              : 'Spread and mean in percent of B. Descriptive historical band: mean +/- 2 standard deviations (percentage points), not a confidence interval.'}
+            {isZ ? 'Z-score · not a trading signal' : '% of B'}
           </p>
+          <details className="chart-details">
+            <summary>Chart details</summary>
+            <p>
+              {isZ
+                ? '+1 and -1 are simulation entry references, not trade recommendations.'
+                : 'Historical band: mean +/- two standard deviations in percentage points, not a confidence interval.'}{' '}
+              Missing observations remain gaps.
+            </p>
+          </details>
           <div
             className="chart-container"
             role="img"

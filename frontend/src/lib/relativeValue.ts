@@ -1,5 +1,19 @@
 import type { SpreadSeries, SpreadRow } from './types'
 
+export interface RelativeValueSelection {
+  pair: string
+  window: number
+  purity: boolean
+  carry: boolean
+  preferred?: string
+}
+export const initialRelativeValueSelection: RelativeValueSelection = {
+  pair: 'GOLDTEN-GOLDPETAL',
+  window: 10,
+  purity: false,
+  carry: true,
+}
+
 export function maturityMatchingChange(
   current: SpreadRow,
   other: SpreadRow | undefined,

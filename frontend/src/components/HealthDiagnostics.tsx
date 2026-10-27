@@ -1,5 +1,5 @@
 import { diagnosticState, returnedObservations } from '@/lib/dataHealth'
-import { formatDate, number } from '@/lib/format'
+import { formatDate, number, humanize } from '@/lib/format'
 import type {
   DiagnosticPage,
   FileDiagnostic,
@@ -13,7 +13,10 @@ export function DiagnosticNotice({ page }: { page: DiagnosticPage<unknown> }) {
     <div
       className={`dh-list-note ${state.state === 'unavailable' ? 'dh-unavailable' : ''}`}
     >
-      <p>{page.definition}</p>
+      <details>
+        <summary>List definition</summary>
+        <p>{page.definition}</p>
+      </details>
       <p>
         <strong>
           {state.state === 'unavailable' ? 'Unavailable: ' : ''}
@@ -31,8 +34,10 @@ export function FileDiagnostics({
   page: DiagnosticPage<FileDiagnostic>
 }) {
   return (
-    <section className="panel dh-files">
-      <h2>{title}</h2>
+    <details className="panel dh-files">
+      <summary>
+        {title} · {page.available ? value(page.total_count) : 'Unavailable'}
+      </summary>
       <DiagnosticNotice page={page} />
       {page.available &&
         (page.items.length ? (
@@ -58,7 +63,9 @@ export function FileDiagnostics({
                   <tr key={`${item.file_name}-${i}`}>
                     <td>{item.file_name}</td>
                     <td>{formatDate(item.trade_date)}</td>
-                    <td>{item.status}</td>
+                    <td>
+                      <span title={item.status}>{humanize(item.status)}</span>
+                    </td>
                     <td>{item.rows_total}</td>
                     <td>{item.rows_kept}</td>
                     <td className="rv-reasons">
@@ -80,7 +87,7 @@ export function FileDiagnostics({
         ) : (
           <p className="empty-state">Zero matching processing records.</p>
         ))}
-    </section>
+    </details>
   )
 }
 export function ObservationDiagnostics({
@@ -100,10 +107,8 @@ export function ObservationDiagnostics({
       <h2>{title}</h2>
       <DiagnosticNotice page={page} />
       <p className="section-description">
-        Local filter and sorting apply to the returned list only: {rows.length}{' '}
-        displayed of {page.returned_count} returned. Global matching counts are
-        unchanged. Row-level validation reasons are not recorded; the list
-        definition and has_trade flag are shown.
+        Showing {rows.length} of {page.returned_count} returned observations.
+        Filters do not change global counts.
       </p>
       <p className="mobile-scroll-hint">
         Scroll horizontally for volume, open interest and observation flags.
@@ -124,8 +129,7 @@ export function ObservationDiagnostics({
                   <th>Expiry</th>
                   <th>Volume (grams)</th>
                   <th>Open interest (grams)</th>
-                  <th>has_trade</th>
-                  <th>List criterion / flag</th>
+                  <th>Trade activity</th>
                 </tr>
               </thead>
               <tbody>
@@ -139,10 +143,6 @@ export function ObservationDiagnostics({
                     <td>{value(row.volume_grams)}</td>
                     <td>{value(row.open_interest_grams)}</td>
                     <td>{row.has_trade ? 'Passed' : 'Failed'}</td>
-                    <td className="rv-reasons">
-                      {page.definition} Trade flag:{' '}
-                      {row.has_trade ? 'Passed' : 'Failed'}.
-                    </td>
                   </tr>
                 ))}
               </tbody>

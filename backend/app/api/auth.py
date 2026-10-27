@@ -5,16 +5,37 @@ import re
 import secrets
 import sqlite3
 import time
+import unicodedata
 from contextlib import contextmanager
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.core.config import BACKEND_DIR, Settings, get_settings
 
 COOKIE = "auraxis_session"
 ITERATIONS = 600_000
 router = APIRouter(prefix="/api/auth", tags=["accounts"])
+
+
+def validate_name(value):
+    if not isinstance(value, str) or any(
+        unicodedata.category(char) in {"Cc", "Cs", "Zl", "Zp"}
+        or (unicodedata.category(char) == "Cf" and char not in "\u200c\u200d")
+        for char in value
+    ):
+        raise ValueError("Use a name without control characters.")
+    value = value.strip()
+    if not 1 <= len(value) <= 100:
+        raise ValueError("Name must contain 1–100 characters.")
+    return value
+
+
+class NameUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str = Field(min_length=1, max_length=100)
+
+    _name = field_validator("name", mode="before")(validate_name)
 
 
 class Credentials(BaseModel):
@@ -33,12 +54,10 @@ class Credentials(BaseModel):
 class Registration(Credentials):
     name: str = Field(min_length=1, max_length=100)
 
-    @field_validator("name")
+    @field_validator("name", mode="before")
     @classmethod
     def name_format(cls, value):
-        if not value.strip():
-            raise ValueError("Name is required")
-        return value.strip()
+        return validate_name(value)
 
     @field_validator("password")
     @classmethod
@@ -56,6 +75,15 @@ class User(BaseModel):
 
 class Account(BaseModel):
     user: User
+
+
+class ProfileUser(User):
+    # The current auth schema never recorded account creation. Do not fabricate it.
+    created_at: None = None
+
+
+class Profile(BaseModel):
+    user: ProfileUser
 
 
 def fingerprint(value):
@@ -215,8 +243,7 @@ def login(
     return {"user": {key: user[key] for key in ("id", "name", "email")}}
 
 
-@router.get("/me", response_model=Account)
-def me(request: Request, settings: Settings = Depends(safe_request)):
+def current_user(request: Request, settings: Settings = Depends(safe_request)):
     token = request.cookies.get(COOKIE)
     if not token:
         raise HTTPException(401, "Please log in.")
@@ -228,7 +255,32 @@ def me(request: Request, settings: Settings = Depends(safe_request)):
         ).fetchone()
     if not user:
         raise HTTPException(401, "Session expired. Please log in again.")
-    return {"user": dict(user)}
+    return dict(user)
+
+
+@router.get("/me", response_model=Account)
+def me(user: dict = Depends(current_user)):
+    return {"user": user}
+
+
+@router.get("/profile", response_model=Profile)
+def profile(user: dict = Depends(current_user)):
+    return {"user": {**user, "created_at": None}}
+
+
+@router.patch("/profile", response_model=Profile)
+def update_profile(
+    body: NameUpdate,
+    user: dict = Depends(current_user),
+    settings: Settings = Depends(get_settings),
+):
+    with database(settings) as db:
+        changed = db.execute(
+            "UPDATE users SET name=? WHERE id=?", (body.name, user["id"])
+        )
+        if changed.rowcount != 1:
+            raise HTTPException(401, "Session expired. Please log in again.")
+    return {"user": {**user, "name": body.name, "created_at": None}}
 
 
 @router.post("/logout", status_code=204)

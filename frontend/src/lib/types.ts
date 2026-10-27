@@ -151,12 +151,104 @@ export type DataHealthParameters = {
   diagnostic_limit?: number
 }
 
+export type CoverageParameters = {
+  start: ISODate
+  end: ISODate
+  product?: string | null
+}
+export interface CoverageCounts {
+  observation_count: number
+  distinct_contract_count: number
+  no_trade_count: number
+  zero_volume_count: number
+  thin_volume_count: number
+  invalid_close_count: number
+}
+export interface CoverageObservation {
+  product: string
+  expiry_date: ISODate
+  has_trade: boolean
+  volume_lots: number
+  volume_grams: number | null
+  open_interest_grams: number | null
+  no_trade: boolean
+  zero_volume: boolean
+  thin_volume: boolean
+  invalid_close: boolean
+}
+export interface CoverageIngestion {
+  file_name: string
+  trade_date: ISODate | null
+  status: string
+  rows_total: number
+  rows_kept: number
+  error_summary: string | null
+}
+export interface CoverageDay extends CoverageCounts {
+  date: ISODate
+  products: (CoverageCounts & { product: string })[]
+  observations: CoverageObservation[]
+  ingestion_count: number | null
+  ingestions: CoverageIngestion[]
+  ingestions_truncated: boolean
+}
+export interface CoverageResponse extends DataResponse {
+  configuration: { start: ISODate; end: ISODate; product: string | null }
+  data_window: {
+    first_trade_date: ISODate | null
+    last_trade_date: ISODate | null
+  }
+  supported_products: string[]
+  counts: CoverageCounts
+  min_volume_grams: number
+  days: CoverageDay[]
+  expected_coverage_available: boolean
+  expected_contract_count: number | null
+  missing_contract_count: number | null
+  expected_coverage_reason: string
+  official_calendar_available: boolean
+  file_records_available: boolean
+  ingestion_record_limit: number
+  undated_ingestion_count: number | null
+  undated_ingestions: CoverageIngestion[]
+  undated_ingestions_truncated: boolean
+  definitions: Record<string, string>
+  limitations: string[]
+}
+
 export type SpreadParameters = {
   pair: string
+  expiry?: string | null
+  start?: string | null
+  end?: string | null
+  min_volume_grams?: number
+  min_oi_grams?: number
   window?: number
   min_periods?: number
   purity?: boolean
   carry_adjusted?: boolean
+}
+export interface SpreadPriceSource {
+  symbol: string
+  trade_date: ISODate
+  expiry_date: ISODate
+  close: number | null
+  quote_grams: number
+  unit_factor: number
+  purity: number
+  purity_factor: number
+  close_p10_raw: number | null
+  close_p10_adjusted: number | null
+  has_trade: boolean
+  volume_grams: number | null
+  open_interest_grams: number | null
+}
+export interface SpreadCalculation {
+  a: SpreadPriceSource
+  b_components: SpreadPriceSource[]
+  b_weights: number[]
+  preceding_finite_count: number
+  statistics_status: string
 }
 export interface SpreadRow {
   trade_date: ISODate
@@ -179,6 +271,7 @@ export interface SpreadRow {
   executable_pair: boolean
   analytics_only: boolean
   comparison_type: string
+  calculation?: SpreadCalculation | null
 }
 export interface SpreadSeries {
   expiry_a: ISODate
@@ -216,7 +309,13 @@ export type CurveParameters = {
   date?: ISODate | null
   purity?: boolean
 }
-export type RolldownParameters = { product: string; purity?: boolean }
+export type RolldownParameters = {
+  product: string
+  purity?: boolean
+  expiry?: string | null
+  start?: string | null
+  end?: string | null
+}
 export interface TermAnalyticsResponse extends DataResponse {
   normalization: NormalizationBasis
   data_window: {
@@ -283,6 +382,12 @@ export interface RolldownResponse extends TermAnalyticsResponse {
 
 export type BacktestParameters = {
   pair: string
+  expiry?: string | null
+  window?: number
+  min_periods?: number
+  expiry_buffer_calendar_days?: number
+  min_oi_grams?: number
+  notional_per_leg?: number
   purity?: boolean
   sizing_mode?: 'fractional' | 'integer_lots'
   z_entry?: number

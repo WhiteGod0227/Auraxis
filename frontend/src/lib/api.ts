@@ -1,6 +1,7 @@
 import {
   isoDate,
   parseDataHealth,
+  parseCoverage,
   parseMeta,
   parseOverview,
   parsePrices,
@@ -22,6 +23,7 @@ import type {
   OverviewParameters,
   PricesParameters,
   DataHealthParameters,
+  CoverageParameters,
 } from './types'
 
 export type ErrorKind =
@@ -47,6 +49,7 @@ const defaults: Record<string, Record<string, ParameterValue>> = {
   '/api/overview': { purity: false },
   '/api/prices': { product: null, purity: false },
   '/api/data-health': { min_volume_grams: 2000, diagnostic_limit: 20 },
+  '/api/coverage': { start: '', end: '', product: null },
   '/api/spreads': {
     pair: '',
     expiry: null,
@@ -114,6 +117,17 @@ export function canonicalParameters(
       throw new ClientError('parameters', 'Invalid parameter.')
     if (base[key] === null && typeof value !== 'string')
       throw new ClientError('parameters', `Invalid parameter: ${key}.`)
+  }
+  if (endpoint === '/api/coverage') {
+    const days =
+      (Date.parse(String(result.end)) - Date.parse(String(result.start))) /
+        86400000 +
+      1
+    if (days < 1 || days > 31)
+      throw new ClientError(
+        'parameters',
+        'Coverage requires start <= end and at most 31 inclusive days.',
+      )
   }
   return Object.fromEntries(
     Object.entries(result).sort(([a], [b]) => a.localeCompare(b)),
@@ -526,7 +540,34 @@ export function createApiClient(options: Options = {}) {
         signal,
       ),
     spreads: (parameters: SpreadParameters, signal?: AbortSignal) =>
-      request('/api/spreads', parameters, parseSpreads, signal),
+      request(
+        '/api/spreads',
+        parameters,
+        (value) => {
+          const data = parseSpreads(value)
+          const expected = canonicalParameters('/api/spreads', parameters)
+          if (
+            Object.entries(expected).some(
+              ([key, value]) =>
+                data.configuration[
+                  key === 'purity'
+                    ? 'use_purity_adjustment'
+                    : (key as keyof typeof data.configuration)
+                ] !== value,
+            ) ||
+            data.series.some((series) =>
+              [...series.rows, series.latest].some(
+                (row) =>
+                  row.pair !== parameters.pair ||
+                  row.expiry_a !== series.expiry_a,
+              ),
+            )
+          )
+            throw new Error('Comparison does not match the requested settings.')
+          return data
+        },
+        signal,
+      ),
     meta: (signal?: AbortSignal) => request('/api/meta', {}, parseMeta, signal),
     overview: (parameters: OverviewParameters = {}, signal?: AbortSignal) =>
       request('/api/overview', parameters, parseOverview, signal),
@@ -534,6 +575,24 @@ export function createApiClient(options: Options = {}) {
       request('/api/prices', parameters, parsePrices, signal),
     dataHealth: (parameters: DataHealthParameters = {}, signal?: AbortSignal) =>
       request('/api/data-health', parameters, parseDataHealth, signal),
+    coverage: (parameters: CoverageParameters, signal?: AbortSignal) =>
+      request(
+        '/api/coverage',
+        parameters,
+        (value) => {
+          const data = parseCoverage(value)
+          if (
+            data.configuration.start !== parameters.start ||
+            data.configuration.end !== parameters.end ||
+            data.configuration.product !== (parameters.product ?? null)
+          )
+            throw new Error(
+              'Coverage does not match the requested range/product.',
+            )
+          return data
+        },
+        signal,
+      ),
   }
 }
 export const api = createApiClient()

@@ -7,6 +7,7 @@ import type {
   MetaResponse,
   OverviewResponse,
   PricesResponse,
+  CoverageResponse,
 } from './types'
 
 type Shape = (value: unknown) => boolean
@@ -189,7 +190,173 @@ export const parsePrices = (v: unknown) => parse<PricesResponse>(prices, v)
 export const parseDataHealth = (v: unknown) =>
   parse<DataHealthResponse>(dataHealth, v)
 
-const spreadRow = object({
+const count: Shape = (v) => num(v) && Number.isSafeInteger(v) && Number(v) >= 0
+const coverageCounts = {
+  observation_count: count,
+  distinct_contract_count: count,
+  no_trade_count: count,
+  zero_volume_count: count,
+  thin_volume_count: count,
+  invalid_close_count: count,
+}
+const coverageIngestion = object({
+  file_name: str,
+  trade_date: nullable(isoDate),
+  status: str,
+  rows_total: count,
+  rows_kept: count,
+  error_summary: nullable(str),
+})
+const coverageShape = object({
+  ...base,
+  configuration: object({
+    start: isoDate,
+    end: isoDate,
+    product: nullable(str),
+  }),
+  data_window: object({
+    first_trade_date: nullable(isoDate),
+    last_trade_date: nullable(isoDate),
+  }),
+  supported_products: list(str),
+  counts: object(coverageCounts),
+  min_volume_grams: (v) => num(v) && Number(v) >= 0,
+  days: list(
+    object({
+      ...coverageCounts,
+      date: isoDate,
+      products: list(object({ ...coverageCounts, product: str })),
+      observations: list(
+        object({
+          product: str,
+          expiry_date: isoDate,
+          has_trade: bool,
+          volume_lots: (v) => num(v) && Number.isSafeInteger(v),
+          volume_grams: nullable(num),
+          open_interest_grams: nullable(num),
+          no_trade: bool,
+          zero_volume: bool,
+          thin_volume: bool,
+          invalid_close: bool,
+        }),
+      ),
+      ingestion_count: nullable(count),
+      ingestions: list(coverageIngestion),
+      ingestions_truncated: bool,
+    }),
+  ),
+  expected_coverage_available: (v) => v === false,
+  expected_contract_count: (v) => v === null,
+  missing_contract_count: (v) => v === null,
+  expected_coverage_reason: str,
+  official_calendar_available: (v) => v === false,
+  file_records_available: bool,
+  ingestion_record_limit: count,
+  undated_ingestion_count: nullable(count),
+  undated_ingestions: list(coverageIngestion),
+  undated_ingestions_truncated: bool,
+  definitions: record(str),
+  limitations: list(str),
+})
+export function parseCoverage(value: unknown): CoverageResponse {
+  const data = parse<CoverageResponse>(coverageShape, value)
+  const { start, end, product } = data.configuration
+  const length = (Date.parse(end) - Date.parse(start)) / 86400000 + 1
+  const countKeys = Object.keys(
+    coverageCounts,
+  ) as (keyof CoverageResponse['counts'])[]
+  const bounded = (counts: CoverageResponse['counts']) =>
+    countKeys.every((key) => counts[key] <= counts.observation_count)
+  const validFiles = (
+    count: number | null,
+    returned: number,
+    truncated: boolean,
+  ) =>
+    data.file_records_available
+      ? count !== null &&
+        returned <= count &&
+        returned <= data.ingestion_record_limit &&
+        truncated === returned < count
+      : count === null && returned === 0 && !truncated
+  if (
+    length < 1 ||
+    length > 31 ||
+    data.days.length !== length ||
+    !bounded(data.counts) ||
+    data.counts.observation_count !==
+      data.days.reduce((sum, day) => sum + day.observation_count, 0) ||
+    !validFiles(
+      data.undated_ingestion_count,
+      data.undated_ingestions.length,
+      data.undated_ingestions_truncated,
+    ) ||
+    (product !== null && !data.supported_products.includes(product)) ||
+    data.undated_ingestions.some((file) => file.trade_date !== null) ||
+    data.days.some(
+      (day, index) =>
+        day.date !==
+          new Date(Date.parse(start) + index * 86400000)
+            .toISOString()
+            .slice(0, 10) ||
+        day.ingestions.some((file) => file.trade_date !== day.date) ||
+        !validFiles(
+          day.ingestion_count,
+          day.ingestions.length,
+          day.ingestions_truncated,
+        ) ||
+        !bounded(day) ||
+        day.distinct_contract_count !== day.observation_count ||
+        day.products.reduce((sum, row) => sum + row.observation_count, 0) !==
+          day.observation_count ||
+        new Set(day.products.map((row) => row.product)).size !==
+          day.products.length ||
+        day.observations.some(
+          (row) =>
+            !data.supported_products.includes(row.product) ||
+            (product !== null && row.product !== product),
+        ) ||
+        new Set(
+          day.observations.map((row) => `${row.product}/${row.expiry_date}`),
+        ).size !== day.observations.length ||
+        day.observation_count !== day.observations.length ||
+        day.products.some(
+          (row) =>
+            !data.supported_products.includes(row.product) ||
+            (product !== null && row.product !== product) ||
+            !bounded(row),
+        ),
+    )
+  )
+    throw new Error(
+      'Coverage response has inconsistent dates, identities or counts.',
+    )
+  return data
+}
+
+const spreadPriceSource = object({
+  symbol: str,
+  trade_date: isoDate,
+  expiry_date: isoDate,
+  close: nullable(num),
+  quote_grams: num,
+  unit_factor: num,
+  purity: num,
+  purity_factor: num,
+  close_p10_raw: nullable(num),
+  close_p10_adjusted: nullable(num),
+  has_trade: bool,
+  volume_grams: nullable(num),
+  open_interest_grams: nullable(num),
+})
+const spreadCalculation = object({
+  a: spreadPriceSource,
+  b_components: list(spreadPriceSource),
+  b_weights: list(num),
+  preceding_finite_count: (v) =>
+    num(v) && Number.isInteger(v) && Number(v) >= 0,
+  statistics_status: str,
+})
+const spreadRowBase = object({
   trade_date: isoDate,
   pair: str,
   expiry_a: isoDate,
@@ -211,6 +378,32 @@ const spreadRow = object({
   analytics_only: bool,
   comparison_type: str,
 })
+// Old, checksummed snapshots remain valid. Malformed supplied traces do not.
+const spreadRow: Shape = (v) =>
+  spreadRowBase(v) &&
+  recordObject(v) &&
+  (!Object.hasOwn(v, 'calculation') ||
+    v.calculation === null ||
+    (spreadCalculation(v.calculation) &&
+      recordObject(v.calculation) &&
+      recordObject(v.calculation.a) &&
+      v.calculation.a.symbol === (v.pair as string).split('-')[0] &&
+      v.calculation.a.trade_date === v.trade_date &&
+      v.calculation.a.expiry_date === v.expiry_a &&
+      v.calculation.a.close_p10_adjusted === v.a_p10_999 &&
+      Array.isArray(v.calculation.b_components) &&
+      v.calculation.b_components.every(
+        (b: Record<string, unknown>, i: number) =>
+          b.trade_date === v.trade_date &&
+          b.symbol === (v.pair as string).split('-')[1] &&
+          b.expiry_date === (v.expiry_b_used as string[])[i],
+      ) &&
+      v.calculation.b_components.length ===
+        (v.expiry_b_used as string[]).length &&
+      Array.isArray(v.calculation.b_weights) &&
+      (v.calculation.b_weights.length === 0 ||
+        v.calculation.b_weights.length === v.calculation.b_components.length) &&
+      v.calculation.b_weights.every((w: number) => w >= 0 && w <= 1)))
 const spreads = object({
   ...base,
   configuration: object({

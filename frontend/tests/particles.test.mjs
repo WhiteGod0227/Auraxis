@@ -57,6 +57,7 @@ test('all dashboard routes retain the landing gradient and stars', () => {
     '/app/term-structure',
     '/app/backtest',
     '/app/data-health',
+    '/app/calendar',
     '/app/methodology',
   ]) {
     for (const name of ['small', 'medium', 'large'])

@@ -50,7 +50,7 @@ export default function CrowLoader({ label = 'Loading…' }: { label?: string })
           <span className="crow-ripple-box" key={ring} />
         ))}
         <div className="crow-ripple-logo">
-            <CrowMascot pose="walking" />
+          <CrowMascot pose="walking" />
         </div>
       </div>
       <span className="sr-only">{label}</span>

@@ -13,6 +13,7 @@ This is a local prototype, not a publicly deployed trading service.
 - `/app/term-structure`: expiry curves and approximate roll-down diagnostics.
 - `/app/backtest`: same-expiry simulation, costs and position reports.
 - `/app/data-health`: ingestion and row-quality diagnostics.
+- `/app/calendar`: read-only Data Coverage calendar and dated/undated file diagnostics.
 - `/app/methodology`: assumptions and limitations.
 - `/login`: local signup/login; account menu provides logout.
 
@@ -142,7 +143,7 @@ Set-Location ..\frontend
 npm run typecheck
 npm run lint
 npm run build
-node --test tests/client.test.mjs tests/particles.test.mjs
+node --test tests/client.test.mjs tests/particles.test.mjs tests/phase1.test.mjs tests/routes.test.mjs tests/coverage.test.mjs tests/workspaces.test.mjs tests/profile.test.mjs
 ```
 
 Backend tests use isolated fixtures/databases, without live MCX requests.
@@ -173,3 +174,57 @@ screenshots/traces referenced in historical audit docs are intentionally exclude
 
 The existing [LICENSE](LICENSE) applies to project code; it does not establish
 market-data redistribution permission. No new license is introduced.
+
+## Phase 1 comparison explanations
+
+Relative Value includes **Explain this comparison** and **View calculation**.
+The API provides optional source/calculation traces from its existing spread
+path; frontend explanations use validated applied results. Historical snapshots
+without traces still work, with calculation details explicitly unavailable.
+See [Phase 1 implementation and verification](docs/PHASE1_EXPLANATIONS.md)
+for compatibility, local integration checks and the remaining browser checklist.
+
+Data Coverage uses `/api/coverage` with an explicit product/date range, limited
+to 31 inclusive days. Observed rows and zero-volume/no-trade flags are distinct
+from missing or expected coverage. No authoritative expected-contract roster or
+official holiday calendar is integrated. Exact monthly offline snapshots are
+exported for months with observations or persisted dated ingestion records;
+old snapshots remain usable, but do not acquire calendar data automatically.
+See [Data Coverage implementation and acceptance report](docs/PHASE2_DATA_COVERAGE.md).
+
+## Saved Research Workspace
+
+Signed-in users can save the **loaded applied configuration** from Relative
+Value, Term Structure and Backtest, then open, rename, edit plain-text notes or
+delete it at `/app/research`. Unsubmitted Backtest drafts are excluded. Reopening
+reloads/recalculates using available data; numerical results are not frozen.
+Explicit unavailable dates/expiries are not replaced with defaults.
+
+`WORKSPACE_DATABASE_PATH=./workspaces.sqlite3` configures a separate private
+SQLite store (relative paths resolve inside backend). It initializes lazily on
+authenticated workspace access. Keep it separate from market/auth databases and
+outside public directories. It is ignored by Git and excluded from snapshots.
+Private CRUD requires the backend and an existing cookie session; it has no
+offline fallback. Public analytics remain available without sign-in.
+
+For API/version limits, private backup precautions, actual verification and the
+remaining browser checklist, see [Phase 3 report](docs/PHASE3_SAVED_RESEARCH.md).
+An isolated **real local HTTP** check (temporary auth/workspace stores, existing
+market database read-only) is available from backend:
+
+```powershell
+.\.venv\Scripts\python.exe scripts/verify_workspaces.py
+```
+
+## My Profile
+
+Signed-in account menus on Landing and the dashboard link to `/app/profile`.
+Users can view their registered email, edit their name, open My Research and
+sign out. Names support Unicode and are trimmed, with 1–100 characters and no
+control characters. Only the name is editable; account identity, sessions and
+saved research are preserved.
+
+The existing account store does not record creation timestamps. Profile returns
+`created_at: null` and shows **Unavailable**; no dates are inferred or backfilled.
+Private profile requests require the backend and never use offline snapshots.
+See [Phase 4 implementation and verification](docs/PHASE4_MY_PROFILE.md).

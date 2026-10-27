@@ -210,7 +210,10 @@ def spreads_api(
     options = {key: value for key, value in config.items() if key != "expiry"}
     frame = (
         compute_spreads(
-            **options, settings=settings, engine=ConnectionEngine(connection)
+            **options,
+            settings=settings,
+            engine=ConnectionEngine(connection),
+            include_calculations=True,
         )
         if available
         else pd.DataFrame()

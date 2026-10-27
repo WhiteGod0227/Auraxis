@@ -64,7 +64,28 @@ def _positive_price(value):
     return pd.notna(value) and isfinite(value) and value > 0
 
 
-def _build(frame, pair, carry, volume, oi):
+def _source_price(row, settings, purity):
+    """Expose the actual normalized input, never invert a final comparison."""
+    return dict(
+        symbol=row.symbol,
+        trade_date=row.trade_date,
+        expiry_date=row.expiry_date,
+        close=row.close,
+        quote_grams=settings.quote_grams[row.symbol],
+        unit_factor=settings.base_grams / settings.quote_grams[row.symbol],
+        purity=settings.purity[row.symbol],
+        purity_factor=(
+            settings.base_purity / settings.purity[row.symbol] if purity else 1.0
+        ),
+        close_p10_raw=row.close_p10_raw,
+        close_p10_adjusted=row.close_p10_999,
+        has_trade=bool(row.has_trade),
+        volume_grams=row.volume_grams,
+        open_interest_grams=row.open_interest_grams,
+    )
+
+
+def _build(frame, pair, carry, volume, oi, *, trace_settings=None, purity=False):
     symbol_a, symbol_b = pair.split("-")
     rows = []
     for day, daily in frame.groupby("trade_date", sort=True):
@@ -81,6 +102,22 @@ def _build(frame, pair, carry, volume, oi):
                 tradable=False,
                 reason="",
             )
+            if trace_settings is not None:
+                row["calculation"] = dict(
+                    a=_source_price(a, trace_settings, purity),
+                    b_components=[],
+                    b_weights=[],
+                    preceding_finite_count=0,
+                    statistics_status="insufficient_history",
+                )
+
+            def record_components(components, weights):
+                if trace_settings is not None:
+                    row["calculation"]["b_components"] = [
+                        _source_price(leg, trace_settings, purity) for leg in components
+                    ]
+                    row["calculation"]["b_weights"] = weights
+
             cross = symbol_a == "GOLDM" and symbol_b != "GOLDM"
             if not cross:
                 matches = leg_b.loc[leg_b.expiry_date == expiry]
@@ -88,6 +125,7 @@ def _build(frame, pair, carry, volume, oi):
                     continue
                 b = next(matches.itertuples())
                 used = [b]
+                record_components(used, [1.0])
                 row.update(
                     expiry_b_used=expiry, days_mismatch=0, b_p10_999=b.close_p10_999
                 )
@@ -101,6 +139,7 @@ def _build(frame, pair, carry, volume, oi):
                 lo = next(lower.tail(1).itertuples())
                 hi = next(upper.head(1).itertuples())
                 used = [lo] if lo.expiry_date == hi.expiry_date else [lo, hi]
+                record_components(used, [])
                 row["expiry_b_used"] = (
                     lo.expiry_date
                     if len(used) == 1
@@ -131,6 +170,9 @@ def _build(frame, pair, carry, volume, oi):
                         / (hi.expiry_date - lo.expiry_date).days
                     )
                 )
+                record_components(
+                    used, [1.0] if len(used) == 1 else [1 - weight, weight]
+                )
                 row["b_p10_999"] = lo.close_p10_999 + weight * (
                     hi.close_p10_999 - lo.close_p10_999
                 )
@@ -145,6 +187,7 @@ def _build(frame, pair, carry, volume, oi):
                     key=lambda b: (abs((b.expiry_date - expiry).days), b.expiry_date),
                 )
                 used = [b]
+                record_components(used, [1.0])
                 row.update(
                     expiry_b_used=b.expiry_date,
                     days_mismatch=(b.expiry_date - expiry).days,
@@ -166,7 +209,8 @@ def _build(frame, pair, carry, volume, oi):
                     row["reason"] = _liquidity([a, *used], volume, oi)
                     row["tradable"] = not row["reason"]
             rows.append(row)
-    return pd.DataFrame(rows, columns=COLUMNS)
+    columns = COLUMNS + (["calculation"] if trace_settings is not None else [])
+    return pd.DataFrame(rows, columns=columns)
 
 
 def _rolling(frame, window, min_periods):
@@ -174,12 +218,25 @@ def _rolling(frame, window, min_periods):
         history = []
         for index, current in series.spread_pct.items():
             past = np.asarray(history[-window:], dtype=float)
+            trace = frame.at[index, "calculation"] if "calculation" in frame else None
+            if trace is not None:
+                trace["preceding_finite_count"] = len(past)
             # Only preceding observations enter the window; append today's value last.
             if len(past) >= min_periods:
                 mean = float(past.mean())
                 std = float(past.std(ddof=1)) if len(past) > 1 else np.nan
                 frame.at[index, "roll_mean"] = mean
                 frame.at[index, "roll_std"] = std
+                if trace is not None:
+                    trace["statistics_status"] = (
+                        "missing_current_spread"
+                        if pd.isna(current)
+                        else "zero_variance"
+                        if pd.notna(std) and std == 0
+                        else "undefined_variance"
+                        if pd.isna(std)
+                        else "ok"
+                    )
                 if pd.notna(current):
                     if pd.notna(std) and std > 0:
                         frame.at[index, "z"] = (current - mean) / std
@@ -207,6 +264,7 @@ def compute_spreads(
     *,
     settings: Settings | None = None,
     engine: Engine | None = None,
+    include_calculations: bool = False,
 ) -> pd.DataFrame:
     """Compute per-expiry diagnostics, using pre-start history for rolling stats.
 
@@ -259,7 +317,15 @@ def compute_spreads(
         settings=settings,
         use_purity_adjustment=use_purity_adjustment,
     )
-    result = _build(frame, pair, carry_adjusted, volume, oi)
+    result = _build(
+        frame,
+        pair,
+        carry_adjusted,
+        volume,
+        oi,
+        trace_settings=settings if include_calculations else None,
+        purity=use_purity_adjustment,
+    )
     result = _rolling(result, window, min_periods)
     if start and not result.empty:
         result = result.loc[result.trade_date >= start]

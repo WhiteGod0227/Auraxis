@@ -1,3 +1,5 @@
+import SourceBadge from '@/components/SourceBadge'
+import DataContext from '@/components/DataContext'
 import { lazy, Suspense, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '@/lib/api'
@@ -7,6 +9,7 @@ import { currency, formatDate, number } from '@/lib/format'
 import DiagnosticLabel from '@/components/DiagnosticLabel'
 import LandingCrow from '@/components/LandingCrow'
 import CrowLoader from '@/components/CrowLoader'
+import LandingHeaderNav from '@/components/LandingHeaderNav'
 const ReferencePriceChart = lazy(
   () => import('@/components/ReferencePriceChart'),
 )
@@ -67,7 +70,6 @@ const features = [
   ],
 ] as const
 export function LandingPage() {
-  const [menu, setMenu] = useState(false)
   const [carry, setCarry] = useState(true)
   const meta = useResource(api.meta)
   const prices = useResource(pricesLoad)
@@ -86,7 +88,6 @@ export function LandingPage() {
     : undefined
   const carryResource = carry ? on : off
   const report = landingBacktestReport(backtest.response?.data)
-  const m = meta.response?.data
   return (
     <div className="landing">
       <a className="skip-link" href="#landing-main">
@@ -100,41 +101,7 @@ export function LandingPage() {
           AURAXIS
           <span className="landing-brand-note">GOLD FUTURES RESEARCH</span>
         </Link>
-        <button
-          className="landing-menu-toggle button"
-          aria-expanded={menu}
-          aria-controls="landing-links"
-          onClick={() => setMenu((v) => !v)}
-        >
-          Menu
-        </button>
-        <nav
-          id="landing-links"
-          className={menu ? 'open' : ''}
-          aria-label="Landing navigation"
-          onKeyDown={(e) => {
-            if (e.key === 'Escape') {
-              setMenu(false)
-              document
-                .querySelector<HTMLButtonElement>('.landing-menu-toggle')
-                ?.focus()
-            }
-          }}
-        >
-          {[
-            ['problem', 'Problem'],
-            ['how-it-works', 'How it works'],
-            ['limitations', 'Limitations'],
-          ].map(([id, label]) => (
-            <a href={`#${id}`} key={id} onClick={() => setMenu(false)}>
-              {label}
-            </a>
-          ))}
-          <Link to="/login">Log in</Link>
-          <Link className="landing-cta" to="/app">
-            Open Dashboard
-          </Link>
-        </nav>
+        <LandingHeaderNav />
       </header>
       <main id="landing-main" tabIndex={-1}>
         <section className="landing-hero landing-section">
@@ -161,44 +128,27 @@ export function LandingPage() {
                 See Methodology
               </Link>
             </div>
-            <div className="landing-history">
-              {meta.response && (
-                <span
-                  className={`source-badge ${meta.response.source === 'Offline snapshot' ? 'offline' : ''}`}
-                >
-                  {meta.response.source}
-                </span>
-              )}
-              <p>
-                Historical data as of{' '}
-                <strong>{formatDate(m?.data_as_of ?? null)}</strong>. Prototype
-                window:{' '}
-                <strong>{m?.trading_session_count ?? 'Unavailable'}</strong>{' '}
-                sessions.
-              </p>
-              {meta.loading && <p role="status">Loading metadata...</p>}
-              {meta.error && (
-                <>
-                  <p>Metadata unavailable: {meta.error}</p>
-                  <button className="button" onClick={meta.retry}>
-                    Retry metadata
-                  </button>
-                </>
-              )}
-            </div>
+
+            {meta.error && (
+              <>
+                <p>Metadata unavailable: {meta.error}</p>
+                <button className="button" onClick={meta.retry}>
+                  Retry metadata
+                </button>
+              </>
+            )}
           </div>
           <div className="panel landing-preview">
             <div className="section-heading">
               <h2>One basis. Separate histories.</h2>
               {prices.response && (
-                <span
-                  className={`source-badge ${prices.response.source === 'Offline snapshot' ? 'offline' : ''}`}
-                >
-                  {prices.response.source}
-                </span>
+                <DataContext
+                  date={prices.response.data.data_as_of}
+                  source={prices.response.source}
+                  experimental={prices.response.data.purity_adjustment}
+                />
               )}
             </div>
-            <p>Fixed-expiry settlement histories, not executable quotes.</p>
             {prices.loading && (
               <div className="landing-chart-placeholder" role="status">
                 <CrowLoader label="Loading historical prices…" />
@@ -214,17 +164,9 @@ export function LandingPage() {
             )}
             {prices.response && (
               <>
-                <p>
-                  {prices.response.data.normalization.unit};{' '}
-                  {prices.response.data.purity_adjustment
-                    ? prices.response.data.normalization.basis
-                    : 'purity adjustment off'}
-                  . Purity verification:{' '}
-                  {
-                    prices.response.data.normalization
-                      .purity_verification_status
-                  }
-                  . Data as of {formatDate(prices.response.data.data_as_of)}.
+                <p className="chart-caption">
+                  {prices.response.data.normalization.unit} · historical
+                  settlements, not executable prices.
                 </p>
                 {prices.response.data.series.some((s) => s.history.length) ? (
                   <Suspense
@@ -243,6 +185,12 @@ export function LandingPage() {
                 )}
                 <details>
                   <summary>Fixed-expiry observations and quality</summary>
+                  <p>
+                    Data date: {formatDate(prices.response.data.data_as_of)}.
+                    Sample:{' '}
+                    {meta.response?.data.trading_session_count ?? 'Unavailable'}{' '}
+                    sessions.
+                  </p>
                   <div
                     className="table-scroll landing-table"
                     tabIndex={0}
@@ -350,12 +298,8 @@ export function LandingPage() {
           <p className="eyebrow">REAL MATURITY COMPARISON</p>
           <div className="landing-section-heading">
             <h2>The same contract. Two comparisons.</h2>
-            <span className="badge">Analytics only</span>
           </div>
-          <p>
-            Matching maturity changes the comparison; it does not establish an
-            executable opportunity.
-          </p>
+          <p>See how matching contract dates changes the price gap.</p>
           <div className="panel landing-carry">
             <div
               className="landing-carry-controls"
@@ -373,10 +317,7 @@ export function LandingPage() {
                 </button>
               ))}
             </div>
-            <p>
-              GOLDM-GOLDTEN · Purity adjustment disabled (experimental when
-              enabled)
-            </p>
+            <p>GOLDM-GOLDTEN · Synthetic comparison, not executable prices.</p>
             <details>
               <summary>Comparison settings</summary>
               <p>
@@ -386,16 +327,7 @@ export function LandingPage() {
             </details>
             {[on, off].map((r, i) => (
               <div className="landing-carry-source" key={i}>
-                <span>
-                  {i === 0 ? 'Matching on' : 'Matching off'} source:{' '}
-                  {r.response?.source ??
-                    (r.loading ? 'Loading' : 'Unavailable')}
-                </span>
-                {r.response && (
-                  <span>
-                    Data as of {formatDate(r.response.data.data_as_of)}
-                  </span>
-                )}
+                {r.response && <SourceBadge source={r.response.source} />}
                 {r.error && (
                   <>
                     <p>{r.error}</p>
@@ -413,12 +345,10 @@ export function LandingPage() {
             ) : selected && comparison ? (
               <div className="landing-carry-values">
                 <p>
-                  Selected A expiry:{' '}
-                  <strong>{formatDate(comparison.expiry)}</strong>. Comparison
-                  observation: <strong>{formatDate(comparison.date)}</strong>;
-                  dataset through:{' '}
-                  <strong>{formatDate(comparison.datasetThrough)}</strong>.{' '}
-                  {carryResource.response?.source}.
+                  Expiry <strong>{formatDate(comparison.expiry)}</strong> ·{' '}
+                  {formatDate(comparison.date)}.{' '}
+                  {carryResource.response?.source === 'Offline snapshot' &&
+                    'Offline snapshot.'}
                 </p>
                 <div className="rv-readings">
                   {[
@@ -436,23 +366,29 @@ export function LandingPage() {
                     </div>
                   ))}
                 </div>
-                <p>
-                  B {carry ? 'interpolation bracket' : 'actual expiry'}:{' '}
-                  {selected.expiry_b_used
-                    .map(
-                      (date, i) =>
-                        `${formatDate(date)} (${selected.days_mismatch[i] >= 0 ? '+' : ''}${selected.days_mismatch[i]} days)`,
-                    )
-                    .join(' / ')}
-                  . Differences are signed B expiry minus A expiry.
-                </p>
-                <p>
-                  <strong>Analytics only</strong>. Liquidity:{' '}
-                  {selected.liquidity_ok ? 'Pass' : 'Fail'};{' '}
-                  {selected.liquidity_reason || 'No reason provided'}. Liquidity
-                  passing does not make this executable.
-                </p>
-                <DiagnosticLabel code={selected.comparison_type} />
+                <details>
+                  <summary>Contract and eligibility details</summary>
+                  <p>
+                    B {carry ? 'interpolation bracket' : 'actual expiry'}:{' '}
+                    {selected.expiry_b_used
+                      .map(
+                        (date, i) =>
+                          `${formatDate(date)} (${selected.days_mismatch[i] >= 0 ? '+' : ''}${selected.days_mismatch[i]} days)`,
+                      )
+                      .join(' / ')}
+                    . Differences are signed B expiry minus A expiry.
+                  </p>
+                  <p>
+                    <strong>Analytics only</strong>. Liquidity:{' '}
+                    {selected.liquidity_ok ? 'Pass' : 'Fail'};{' '}
+                    {selected.liquidity_reason || 'No reason provided'}.
+                    Liquidity passing does not make this executable.
+                  </p>
+                  <DiagnosticLabel code={selected.comparison_type} />
+                  <p>
+                    Dataset through {formatDate(comparison.datasetThrough)}.
+                  </p>
+                </details>
                 <details>
                   <summary>Technical eligibility</summary>
                   <p>
@@ -467,14 +403,17 @@ export function LandingPage() {
                 with a valid carry-on bracket in matching configurations.
               </div>
             )}
-            <p className="section-description">
-              Selection uses the latest common finite observation date with a
-              valid carry-on bracket first, then the nearest eligible unexpired
-              A expiry on that date. An earlier observation is used only if the
-              latest dataset date has no eligible comparison. Interpolated
-              values are synthetic, not fills. Adjustment may widen, shrink or
-              reverse the gap.
-            </p>
+            <details className="section-description">
+              <summary>How this comparison is selected</summary>
+              <p>
+                Selection uses the latest common finite observation date with a
+                valid carry-on bracket first, then the nearest eligible
+                unexpired A expiry on that date. An earlier observation is used
+                only if the latest dataset date has no eligible comparison.
+                Interpolated values are synthetic, not fills. Adjustment may
+                widen, shrink or reverse the gap.
+              </p>
+            </details>
           </div>
         </section>
         <section className="landing-section">
@@ -517,18 +456,14 @@ export function LandingPage() {
           )}
           {report && backtest.response ? (
             <div className="panel landing-report">
-              <span
-                className={`source-badge ${backtest.response.source === 'Offline snapshot' ? 'offline' : ''}`}
-              >
-                {backtest.response.source}
-              </span>
+              <DataContext
+                date={backtest.response.data.data_as_of}
+                source={backtest.response.source}
+                experimental={report.configuration.use_purity_adjustment}
+              />
               <h3>
                 {report.configuration.pair} - expiry {formatDate(report.expiry)}
               </h3>
-              <p>
-                Historical data as of{' '}
-                {formatDate(backtest.response.data.data_as_of)}.
-              </p>
               <details>
                 <summary>Simulation settings and selection</summary>
                 <p>
@@ -567,13 +502,16 @@ export function LandingPage() {
                   </div>
                 ))}
               </div>
-              <p className="landing-api-verdict">{report.verdict}</p>
-              {report.metrics.warnings.map((w) => (
-                <p key={w}>{w}</p>
-              ))}
+              <details>
+                <summary>Result interpretation and warnings</summary>
+                <p className="landing-api-verdict">{report.verdict}</p>
+                {report.metrics.warnings.map((w) => (
+                  <p key={w}>{w}</p>
+                ))}
+              </details>
               <p className="section-description">
-                Short historical sample; no reliable performance conclusion.
-                This is one independent expiry report, not portfolio P&amp;L.
+                Settlement simulation · short sample, not proof of
+                profitability.
               </p>
             </div>
           ) : (

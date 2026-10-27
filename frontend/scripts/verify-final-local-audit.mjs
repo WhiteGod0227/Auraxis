@@ -264,7 +264,10 @@ await nav('/app')
 report.dashboardParticles = await ev(
   "document.querySelectorAll('.auraxis-star-background>div').length",
 )
-assert(report.dashboardParticles === 3, 'Dashboard retains the requested star background')
+assert(
+  report.dashboardParticles === 3,
+  'Dashboard retains the requested star background',
+)
 await send('Emulation.setDeviceMetricsOverride', {
   width: 1440,
   height: 1000,

@@ -1,6 +1,15 @@
 # Auraxis frontend — local research prototype
 
 Current local status, limitations and commands: [LOCAL_RUN_HANDOVER.md](../docs/LOCAL_RUN_HANDOVER.md).
+
+Data Coverage is implemented at `/app/calendar` and linked in the dashboard.
+Choose a month/product and select dates for observed product/expiry details.
+Arrow keys move dates; Home/End move within a week. Selected month/product/date
+are shared by the dashboard layout while navigating between its pages. Only
+exact exported month/product combinations work offline; unsupported months
+remain unavailable. No date is declared an exchange holiday, and expected
+contract coverage is unavailable. See [Data Coverage report](../docs/PHASE2_DATA_COVERAGE.md)
+for endpoint definitions, test commands and browser acceptance items.
 Final audit classification: [FINAL_LOCAL_READINESS.md](../docs/FINAL_LOCAL_READINESS.md).
 
 Local accounts: `/login` provides signup/login, cookie sessions and dashboard
@@ -100,7 +109,6 @@ node scripts/verify-browser.mjs
 Purity assumptions remain unverified. Close/settlement is not an executable
 price. This dashboard is for educational and research purposes only.
 
-
 ## Relative Value (Step 11B)
 
 The six configured pairs use validated `/api/spreads` responses, with all expiry
@@ -128,7 +136,6 @@ node scripts/verify-relative-value.mjs
 The browser script uses the same dedicated Chrome debug session described above;
 API unavailability is simulated by blocking browser requests, without stopping
 backend processes. No other analytics pages are implemented in Step 11B.
-
 
 ## Term Structure (Phase 2)
 
@@ -162,7 +169,6 @@ above, frontend 5180 and backend 8010. Screenshots and reports are saved under
 ignored `node_modules/.cache/auraxis-verification/`. Browser request blocking
 simulates offline and mixed sources without stopping the backend. This phase
 does not implement other pages or change backend analytics.
-
 
 ## Backtest (Phase 3)
 
@@ -200,7 +206,6 @@ with frontend 5180/backend 8010, as described above. Browser API blocking tests
 offline behavior without stopping the backend. Desktop/mobile screenshots and
 reports go to ignored `node_modules/.cache/auraxis-verification/`.
 
-
 ## Data Health and Methodology (Phase 4)
 
 Open `/app/data-health` for default read-only health diagnostics and independently
@@ -228,11 +233,9 @@ node --test tests/client.test.mjs
 node scripts/verify-health-methodology.mjs
 ```
 
-Browser checks use installed Chrome debug port 9222, frontend 5180 and backend
-8010. Screenshots/reports go to ignored node_modules/.cache/auraxis-verification.
+Browser checks use installed Chrome debug port 9222, frontend 5180 and backend 8010. Screenshots/reports go to ignored node_modules/.cache/auraxis-verification.
 Browser blocking/interception tests offline and partial failures without stopping
 services. Landing, Calendar and Alerts remain outside this phase.
-
 
 ## Landing page and demo navigation (Phase 5)
 
@@ -302,3 +305,34 @@ gram exposure are available in row details. Integer mode has no offline snapshot
 restore saved defaults returns to fractional mode. Comparison-basis warnings
 remain visible. See [the audit](../docs/AUDIT_2026-10-15.md) for source evidence,
 reconciliation, checks and remaining verification limits.
+
+# Saved Research Workspace
+
+Signed-in navigation includes **My Research** at `/app/research`. Save research
+appears on Relative Value, Term Structure and Backtest and captures the loaded
+applied configuration, not unsubmitted edits. Reopen links contain only the
+workspace ID; private settings/notes are retrieved from the backend, kept in
+memory and cleared on account change/expiry/sign-out. Private requests never use
+public snapshot fallback. Supported analytics can still use exact offline
+snapshots after successful workspace retrieval, with their actual source label.
+
+```powershell
+node --test tests/client.test.mjs tests/particles.test.mjs tests/phase1.test.mjs tests/routes.test.mjs tests/coverage.test.mjs tests/workspaces.test.mjs
+```
+
+See [Phase 3 verification and browser checklist](../docs/PHASE3_SAVED_RESEARCH.md).
+
+# My Profile
+
+`/app/profile` uses the existing account/session flow, with safe sign-in return
+navigation. Edit name has Save/Cancel, linked validation, pending/error states
+and confirmed shared-name updates. Navigation away discards unsaved name edits.
+Registered email is read-only; account creation shows Unavailable because the
+existing store has no timestamp. No profile payload is cached publicly or
+persisted locally; backend outages are explicit and no offline fallback exists.
+
+```powershell
+node --test tests/client.test.mjs tests/particles.test.mjs tests/phase1.test.mjs tests/routes.test.mjs tests/coverage.test.mjs tests/workspaces.test.mjs tests/profile.test.mjs
+```
+
+See [Phase 4 report and browser checklist](../docs/PHASE4_MY_PROFILE.md).

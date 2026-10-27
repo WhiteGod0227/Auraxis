@@ -19,6 +19,30 @@ class AnalyticsResponse(DataResponse):
     assumptions: list[str]
 
 
+class SpreadPriceSource(ResponseModel):
+    symbol: str
+    trade_date: date
+    expiry_date: date
+    close: float | None
+    quote_grams: float
+    unit_factor: float
+    purity: float
+    purity_factor: float
+    close_p10_raw: float | None
+    close_p10_adjusted: float | None
+    has_trade: bool
+    volume_grams: float | None
+    open_interest_grams: float | None
+
+
+class SpreadCalculation(ResponseModel):
+    a: SpreadPriceSource
+    b_components: list[SpreadPriceSource]
+    b_weights: list[float]
+    preceding_finite_count: int
+    statistics_status: str
+
+
 class SpreadRow(ResponseModel):
     trade_date: date
     pair: str
@@ -40,6 +64,8 @@ class SpreadRow(ResponseModel):
     executable_pair: bool
     analytics_only: bool
     comparison_type: str
+    # Additive trace: legacy offline payloads legitimately lack these inputs.
+    calculation: SpreadCalculation | None = None
 
 
 class SpreadSeries(ResponseModel):

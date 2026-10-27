@@ -237,11 +237,11 @@ export default function BacktestTables({ report }: { report: BacktestReport }) {
               : 'Unresolved-expiry positions'}{' '}
             ({categories[category].length})
           </h2>
-          <p>
-            {category === 'unresolved'
-              ? 'Final economic outcome is unknown. These positions are not completed trades and are separate from normal open positions.'
-              : 'Outstanding positions remain open at data end; marked P&L is not a finalized economic outcome.'}
-          </p>
+          {category === 'unresolved' && categories[category].length > 0 && (
+            <p>
+              Final economic outcome is unknown; these are not completed trades.
+            </p>
+          )}
           <p className="mobile-scroll-hint">
             Scroll horizontally for mark quality, costs and pending exit
             details.
@@ -328,27 +328,37 @@ export default function BacktestTables({ report }: { report: BacktestReport }) {
         </section>
       ))}
       <section className="panel bt-orders">
-        <h2>Pending orders ({report.pending_orders.length})</h2>
-        <OrderTable orders={report.pending_orders} label="Pending orders" />
-        <h3>Cancelled, blocked and unresolved order diagnostics</h3>
-        <p>
-          Blocked exits: {report.metrics.blocked_exit_count} distinct exit
-          orders; {report.metrics.blocked_exit_attempt_count} attempts. Attempts
-          are not a count of affected positions. Cancelled entries:{' '}
-          {report.metrics.cancelled_entry_count}.
-        </p>
-        <OrderTable
-          orders={report.diagnostics}
-          events
-          label="Order diagnostics"
-        />
+        {report.metrics.blocked_exit_count > 0 && (
+          <p className="quality-notice">
+            {report.metrics.blocked_exit_count} blocked exit orders remain in
+            the diagnostics.
+          </p>
+        )}
         <details>
-          <summary>All order events ({report.order_events.length})</summary>
+          <summary>
+            Order diagnostics · {report.pending_orders.length} pending
+          </summary>
+          <OrderTable orders={report.pending_orders} label="Pending orders" />
+          <h3>Cancelled, blocked and unresolved order diagnostics</h3>
+          <p>
+            Blocked exits: {report.metrics.blocked_exit_count} distinct exit
+            orders; {report.metrics.blocked_exit_attempt_count} attempts.
+            Attempts are not a count of affected positions. Cancelled entries:{' '}
+            {report.metrics.cancelled_entry_count}.
+          </p>
           <OrderTable
-            orders={report.order_events}
+            orders={report.diagnostics}
             events
-            label="Order events"
+            label="Order diagnostics"
           />
+          <details>
+            <summary>All order events ({report.order_events.length})</summary>
+            <OrderTable
+              orders={report.order_events}
+              events
+              label="Order events"
+            />
+          </details>
         </details>
       </section>
     </>

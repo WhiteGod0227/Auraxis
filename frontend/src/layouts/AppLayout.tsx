@@ -1,15 +1,25 @@
 import { useEffect, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import CrowMascot from '@/components/CrowMascot'
-import AccountMenu from '@/components/AccountMenu'
+import LandingHeaderNav from '@/components/LandingHeaderNav'
+import { useAccount } from '@/lib/useAccount'
 import type { CrowPose } from '@/components/CrowMascot'
 import { api } from '@/lib/api'
 import { useResource } from '@/lib/useResource'
 import type { Resource } from '@/lib/useResource'
 import type { MetaResponse } from '@/lib/types'
+import { initialRelativeValueSelection } from '@/lib/relativeValue'
+import type { RelativeValueSelection } from '@/lib/relativeValue'
+import { initialCoverageSelection } from '@/lib/coverage'
+import type { CoverageSelection } from '@/lib/coverage'
+import type { Dispatch, SetStateAction } from 'react'
 
 export interface DashboardContext {
   meta: Resource<MetaResponse>
+  relativeValue: RelativeValueSelection
+  setRelativeValue: Dispatch<SetStateAction<RelativeValueSelection>>
+  coverageSelection: CoverageSelection
+  setCoverageSelection: Dispatch<SetStateAction<CoverageSelection>>
 }
 const links = [
   { path: '/app', label: 'Overview', icon: '◈', end: true },
@@ -18,8 +28,10 @@ const links = [
   { path: '/app/backtest', label: 'Backtest', icon: '↻' },
   { path: '/app/data-health', label: 'Data Health', icon: '▤' },
   { path: '/app/methodology', label: 'Methodology', icon: '⊙' },
+  { path: '/app/calendar', label: 'Data Coverage', icon: '▦' },
 ]
 export function AppLayout() {
+  const account = useAccount()
   const { pathname } = useLocation()
   const crowPose: CrowPose = pathname.endsWith('/backtest')
     ? 'running'
@@ -33,6 +45,12 @@ export function AppLayout() {
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const meta = useResource(api.meta)
+  const [relativeValue, setRelativeValue] = useState(
+    initialRelativeValueSelection,
+  )
+  const [coverageSelection, setCoverageSelection] = useState(
+    initialCoverageSelection,
+  )
   useEffect(() => {
     const media = window.matchMedia('(max-width: 700px)')
     const closeOnDesktop = () => {
@@ -76,12 +94,24 @@ export function AppLayout() {
         </NavLink>
         <div className="sidebar-label">WORKSPACE</div>
         <nav id="dashboard-nav">
+          {account.user && (
+            <NavLink
+              to="/app/research"
+              className="nav-link"
+              onClick={() => setMobileOpen(false)}
+            >
+              <span className="nav-icon" aria-hidden="true">
+                ▣
+              </span>
+              <span className="nav-label">My Research</span>
+            </NavLink>
+          )}
           {links.map((link) => (
             <NavLink
               key={link.path}
               to={link.path}
               end={link.end}
-              aria-label={`${link.label}${!['Overview', 'Relative Value', 'Term Structure', 'Backtest', 'Data Health', 'Methodology'].includes(link.label) ? ' (not implemented yet)' : ''}`}
+              aria-label={`${link.label}${!['Overview', 'Relative Value', 'Term Structure', 'Backtest', 'Data Health', 'Methodology', 'Data Coverage'].includes(link.label) ? ' (not implemented yet)' : ''}`}
               title={collapsed ? link.label : undefined}
               onClick={() => setMobileOpen(false)}
               className={({ isActive }) =>
@@ -99,6 +129,7 @@ export function AppLayout() {
                 'Backtest',
                 'Data Health',
                 'Methodology',
+                'Data Coverage',
               ].includes(link.label) && (
                 <span className="nav-pending" aria-label="Not implemented">
                   Soon
@@ -128,7 +159,7 @@ export function AppLayout() {
           <span aria-hidden="true">{collapsed ? '→' : '←'}</span>
           <span className="nav-label">Collapse sidebar</span>
         </button>
-        <button className="mobile-close" onClick={() => setMobileOpen(false)}>
+        <button className="mobile-close" onClick={closeNavigation}>
           Close navigation
         </button>
       </aside>
@@ -163,38 +194,28 @@ export function AppLayout() {
               MCX <span className="muted">/</span> Gold futures
             </span>
           </div>
-          <div className="topbar-meta">
-            <AccountMenu />
-            <span>
-              Historical data{' '}
-              <strong>
-                {meta.response?.data.data_as_of ??
-                  (meta.loading ? 'Loading…' : 'Unavailable')}
-              </strong>
-            </span>
-            <span className="badge">
-              Prototype window:{' '}
-              {meta.response?.data.trading_session_count ?? '—'} sessions
-            </span>
-            {meta.response && (
-              <span
-                className={`source-badge ${meta.response.source === 'Offline snapshot' ? 'offline' : ''}`}
-              >
-                {meta.response.source}
-              </span>
-            )}
-          </div>
+          <LandingHeaderNav />
         </header>
         <main id="dashboard-content" tabIndex={-1}>
-          <p className="basis-warning">
-            Research prototype · Purity adjustment is experimental and off by
-            default.
-          </p>
-          <Outlet context={{ meta } satisfies DashboardContext} />
+          <Outlet
+            context={
+              {
+                meta,
+                relativeValue,
+                setRelativeValue,
+                coverageSelection,
+                setCoverageSelection,
+              } satisfies DashboardContext
+            }
+          />
         </main>
-        <footer>
-          Educational and research purposes only. Not investment advice.
-        </footer>
+        {!['/app/profile', '/app/research', '/app/alerts'].includes(
+          pathname,
+        ) && (
+          <footer>
+            Educational and research purposes only. Not investment advice.
+          </footer>
+        )}
       </div>
     </div>
   )

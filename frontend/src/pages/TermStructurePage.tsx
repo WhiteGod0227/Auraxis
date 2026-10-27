@@ -1,8 +1,17 @@
+import DataContext from '@/components/DataContext'
 import { lazy, Suspense, useCallback, useState } from 'react'
 import { api } from '@/lib/api'
 import DiagnosticLabel from '@/components/DiagnosticLabel'
 import CrowLoader from '@/components/CrowLoader'
 import { useResource } from '@/lib/useResource'
+import SaveResearch from '@/components/SaveResearch'
+import { useWorkspace } from '@/lib/workspaceContext'
+import {
+  termConfiguration,
+  researchCandidate,
+  restoredExpiry,
+  selection,
+} from '@/lib/workspaces'
 import {
   availableCurveDates,
   curveChartRows,
@@ -42,51 +51,71 @@ function ResourceCaption({
   const d = response.data
   return (
     <div className="ts-resource-caption">
-      <span
-        className={`source-badge ${response.source === 'Offline snapshot' ? 'offline' : ''}`}
-      >
-        {response.source}
-      </span>
-      <p>
-        {kind} historical data as of {formatDate(d.data_as_of)}.{' '}
-        {kind === 'Curve' && 'selected_date' in d
-          ? `Curve observation: ${formatDate(d.selected_date)}.`
-          : `Full roll-down window: ${formatDate(d.data_window.first_trade_date)} to ${formatDate(d.data_window.last_trade_date)}.`}
-      </p>
+      <DataContext
+        date={
+          kind === 'Curve' && 'selected_date' in d
+            ? d.selected_date
+            : d.data_as_of
+        }
+        source={response.source}
+        experimental={d.configuration.use_purity_adjustment}
+      />
       <details>
-        <summary>Applied request details</summary>
+        <summary>Applied settings</summary>
         <p>
-          Applied product: {d.configuration.product}; purity:{' '}
-          {String(d.configuration.use_purity_adjustment)}.{' '}
+          Product: {d.configuration.product}. Purity adjustment:{' '}
+          {d.configuration.use_purity_adjustment ? 'Experimental' : 'Off'}.
+        </p>
+        <p>
           {kind === 'Curve' && 'date' in d.configuration
-            ? `Requested date: ${d.configuration.date ?? 'latest available (no date filter)'}.`
-            : 'Expiry/start/end filters: all; selected expiry is local.'}
+            ? `Curve date: ${d.configuration.date ?? 'Latest available'}.`
+            : `History: ${formatDate(d.data_window.first_trade_date)} to ${formatDate(d.data_window.last_trade_date)}.`}
+        </p>
+        <p>Dataset through {formatDate(d.data_as_of)}.</p>
+        {'expiry' in d.configuration && (
+          <p>
+            Expiry filter: {d.configuration.expiry ?? 'All expiries'}; dates:{' '}
+            {d.configuration.start ?? 'Start of data'} to{' '}
+            {d.configuration.end ?? 'End of data'}.
+          </p>
+        )}
+        <p>
+          {kind === 'Curve'
+            ? 'Changing the curve date does not change the roll-down history.'
+            : 'Each expiry is analysed separately.'}
         </p>
       </details>
-      <p>
-        {d.normalization.unit};{' '}
-        {d.configuration.use_purity_adjustment
-          ? d.normalization.basis
-          : 'quote-size conversion only; purity adjustment off'}
-        . Purity verification: {d.normalization.purity_verification_status}.
-      </p>
     </div>
   )
 }
 export function TermStructurePage() {
-  const [product, setProduct] = useState('GOLDTEN')
-  const [purity, setPurity] = useState(false)
-  const [date, setDate] = useState('')
-  const [preferredPoint, setPreferredPoint] = useState<string>()
-  const [preferredRoll, setPreferredRoll] = useState<string>()
+  const workspace = useWorkspace()
+  const saved =
+    workspace?.configuration.kind === 'term_structure'
+      ? workspace.configuration
+      : undefined
+  const [product, setProduct] = useState(saved?.curve.product ?? 'GOLDTEN')
+  const [purity, setPurity] = useState(saved?.curve.purity ?? false)
+  const [date, setDate] = useState(saved?.curve.date ?? '')
+  const [preferredPoint, setPreferredPoint] = useState<string | undefined>(
+    saved?.curve_expiry.mode === 'explicit'
+      ? saved.curve_expiry.value
+      : undefined,
+  )
+  const [preferredRoll, setPreferredRoll] = useState<string | undefined>(
+    saved?.roll_expiry.mode === 'explicit'
+      ? saved.roll_expiry.value
+      : undefined,
+  )
   const loadCurve = useCallback(
     (signal: AbortSignal) =>
-      api.curve({ product, purity, ...(date ? { date } : {}) }, signal),
+      api.curve({ product, purity, date: date || null }, signal),
     [product, purity, date],
   )
   const loadRoll = useCallback(
-    (signal: AbortSignal) => api.rolldown({ product, purity }, signal),
-    [product, purity],
+    (signal: AbortSignal) =>
+      api.rolldown({ ...saved?.roll, product, purity }, signal),
+    [saved, product, purity],
   )
   const curve = useResource(loadCurve)
   const roll = useResource(loadRoll)
@@ -94,16 +123,34 @@ export function TermStructurePage() {
   const r = roll.response?.data
   const dates = availableCurveDates(c, r)
   const points = c ? curveChartRows(c.points) : []
-  const pointExpiry = selectContractExpiry(
+  const pointExpiry = restoredExpiry(
     points.map((p) => p.expiry_date),
-    c?.selected_date ?? null,
-    preferredPoint,
+    saved
+      ? preferredPoint
+        ? selection(preferredPoint)
+        : saved.curve_expiry
+      : undefined,
+    () =>
+      selectContractExpiry(
+        points.map((p) => p.expiry_date),
+        c?.selected_date ?? null,
+        preferredPoint,
+      ),
   )
   const point = points.find((p) => p.expiry_date === pointExpiry)
-  const rollExpiry = selectContractExpiry(
+  const rollExpiry = restoredExpiry(
     r?.series.map((s) => s.expiry_date) ?? [],
-    r?.data_as_of ?? null,
-    preferredRoll,
+    saved
+      ? preferredRoll
+        ? selection(preferredRoll)
+        : saved.roll_expiry
+      : undefined,
+    () =>
+      selectContractExpiry(
+        r?.series.map((s) => s.expiry_date) ?? [],
+        r?.data_as_of ?? null,
+        preferredRoll,
+      ),
   )
   const series = r?.series.find((s) => s.expiry_date === rollExpiry)
   const latest = series ? latestRolldown(series) : undefined
@@ -122,12 +169,46 @@ export function TermStructurePage() {
         <div>
           <p className="eyebrow">EXPIRY CURVES & FIXED-CONTRACT CHANGES</p>
           <h1>Term Structure</h1>
-          <p className="page-description">
-            Compare gold prices across expiries and estimate how the curve's
-            shape relates to changes in a fixed contract.
-          </p>
         </div>
       </div>
+      <SaveResearch
+        selectionLabel={
+          c
+            ? `${c.configuration.product} · curve expiry ${formatDate(pointExpiry ?? null)} · roll-down ${formatDate(rollExpiry ?? null)}`
+            : undefined
+        }
+        currentContext={
+          curve.response
+            ? {
+                data_as_of: curve.response.data.data_as_of,
+                source: curve.response.source,
+              }
+            : undefined
+        }
+        candidate={researchCandidate(
+          curve.response,
+          curve.loading || roll.loading,
+          c &&
+            r &&
+            point &&
+            series &&
+            curve.response?.source === roll.response?.source &&
+            c.data_as_of === r.data_as_of
+            ? termConfiguration(
+                c,
+                r,
+                preferredPoint ? pointExpiry : undefined,
+                preferredRoll ? rollExpiry : undefined,
+              )
+            : undefined,
+        )}
+      />
+      {saved && c && r && (!point || !series) && (
+        <p className="error-notice" role="alert">
+          Saved date or expiry is unavailable. No other contract has been
+          substituted. Choose a new selection explicitly.
+        </p>
+      )}
       <section
         className="panel rv-controls ts-controls"
         aria-label="Term structure controls"
@@ -185,19 +266,10 @@ export function TermStructurePage() {
           />
           Purity adjustment (experimental)
         </label>
-        <span className="badge ts-purity-note">
-          Purity assumptions unverified
-        </span>
-        <p className="rv-control-note">
-          Date options come from actual product observations. Curve date changes
-          leave the full roll-down history unchanged. All displayed settlements
-          are historical, not executable quotes.
-        </p>
       </section>
       <section className="panel ts-curve-section" aria-label="Expiry curve">
         <div className="section-heading">
           <h2>Expiry-price curve</h2>
-          {c && <span className="badge">{formatDate(c.selected_date)}</span>}
         </div>
         {curve.loading && (
           <div>
@@ -226,12 +298,14 @@ export function TermStructurePage() {
             <ResourceCaption response={curve.response} kind="Curve" />
             {points.length ? (
               <>
-                <p className="section-description">
-                  Numeric calendar days to expiry preserve unequal maturity
-                  distances. Hollow markers denote untraded settlements and
-                  break the traded line; no interpolated line establishes a
-                  fill.
-                </p>
+                <details className="chart-details">
+                  <summary>Chart details</summary>
+                  <p>
+                    Expiries use their actual calendar-day spacing. Hollow
+                    markers show untraded settlements; missing/untraded
+                    observations break the traded line.
+                  </p>
+                </details>
                 <Suspense
                   fallback={<div role="status">Loading curve chart...</div>}
                 >
@@ -246,6 +320,7 @@ export function TermStructurePage() {
                       value={pointExpiry ?? ''}
                       onChange={(e) => setPreferredPoint(e.target.value)}
                     >
+                      {!pointExpiry && <option value="">Unavailable</option>}
                       {points.map((p) => (
                         <option key={p.expiry_date} value={p.expiry_date}>
                           {formatDate(p.expiry_date)}
@@ -299,27 +374,14 @@ export function TermStructurePage() {
                         </div>
                       ))}
                     </div>
-                    <p>
-                      Trade activity:{' '}
-                      <strong>{point.has_trade ? 'Passed' : 'Failed'}</strong>;
-                      Quality:{' '}
-                      {point.quality_reason ? (
-                        <DiagnosticLabel code={point.quality_reason} />
-                      ) : (
-                        'No reason provided'
-                      )}
-                      .{' '}
-                      {point.has_trade
-                        ? 'A traded settlement still does not guarantee an executable quote.'
-                        : 'This untraded settlement is not an executable market quote.'}
-                    </p>
-                    <p>
-                      Basis:{' '}
-                      {c.configuration.use_purity_adjustment
-                        ? c.normalization.basis
-                        : 'purity off; raw quote-size normalization'}
-                      ; {c.normalization.unit}.
-                    </p>
+                    {(!point.has_trade || point.quality_reason) && (
+                      <p className="quality-notice">
+                        {!point.has_trade && 'No recorded trade. '}
+                        {point.quality_reason && (
+                          <DiagnosticLabel code={point.quality_reason} />
+                        )}
+                      </p>
+                    )}
                   </div>
                 )}
                 <details className="ts-curve-table" open>
@@ -388,11 +450,9 @@ export function TermStructurePage() {
       >
         <div className="section-heading">
           <h2>Roll-down decomposition</h2>
-          <span className="badge">Independent fixed-expiry history</span>
         </div>
         <p className="section-description">
-          Session changes in rupees per 10 g. Estimated roll-down is a model
-          component, not a cash payment or realized return.
+          Rs per 10 g · approximate model, not a realized return.
         </p>
         <label className="ts-expiry-control">
           Roll-down contract
@@ -440,17 +500,15 @@ export function TermStructurePage() {
                     Latest returned observation -{' '}
                     {formatDate(latest.trade_date)}
                   </h3>
-                  <p>
-                    Expiry {formatDate(latest.expiry_date)}; previous
-                    observation {formatDate(latest.previous_trade_date)};
-                    elapsed {latest.elapsed_days} calendar days; immediate next
-                    expiry {formatDate(latest.next_expiry_used)}.
-                  </p>
                   {!latest.decomposition_valid && (
                     <p className="ts-warning">
                       <strong>
                         Decomposition unavailable:{' '}
-                        {latest.reason || 'No reason returned'}
+                        {latest.reason ? (
+                          <DiagnosticLabel code={latest.reason} />
+                        ) : (
+                          'No reason provided'
+                        )}
                       </strong>
                       . This is the latest row; an older valid result has not
                       been substituted.
@@ -480,25 +538,29 @@ export function TermStructurePage() {
                     ))}
                   </div>
                   {check && (
-                    <p>
-                      Raw change = estimated roll-down + residual change:{' '}
-                      {value(latest.raw_change, true)} ={' '}
-                      {value(latest.estimated_roll_down, true)} +{' '}
-                      {value(latest.residual_change, true)}. Full-precision
-                      reconciliation:{' '}
-                      <strong>{check.reconciles ? 'Pass' : 'Mismatch'}</strong>{' '}
-                      (display values rounded).
-                    </p>
+                    <details>
+                      <summary>Reconciliation details</summary>
+                      <p>
+                        Raw change = estimated roll-down + residual change:{' '}
+                        {value(latest.raw_change, true)} ={' '}
+                        {value(latest.estimated_roll_down, true)} +{' '}
+                        {value(latest.residual_change, true)}. Full-precision
+                        reconciliation:{' '}
+                        <strong>
+                          {check.reconciles ? 'Pass' : 'Mismatch'}
+                        </strong>{' '}
+                        (display values rounded).
+                      </p>
+                    </details>
                   )}
-                  <p>
-                    Residual change is what remains after this model's estimated
-                    roll-down. It is not proof of mispricing or a causal
-                    decomposition.
-                  </p>
                 </div>
                 {counts && (
-                  <div className="ts-diagnostics">
-                    <h3>Selected-expiry quality diagnostics</h3>
+                  <details className="ts-diagnostics">
+                    <summary>
+                      Quality diagnostics · {counts.invalid} invalid
+                      observations
+                    </summary>
+
                     <p>
                       Selected expiry {formatDate(series.expiry_date)}:{' '}
                       <strong>
@@ -517,7 +579,13 @@ export function TermStructurePage() {
                       {r.invalid_count} invalid. These are separate from the
                       selected-expiry counts.
                     </p>
-                  </div>
+                  </details>
+                )}
+                {counts && counts.invalid > 0 && (
+                  <p className="quality-notice">
+                    {counts.invalid} observations have an unavailable
+                    decomposition. See quality diagnostics for reasons.
+                  </p>
                 )}
                 <p className="mobile-scroll-hint">
                   Scroll horizontally for decomposition values, validity and
@@ -595,60 +663,64 @@ export function TermStructurePage() {
         )}
       </section>
       <section className="panel ts-method">
-        <h2>How this estimate works</h2>
-        <ol>
-          <li>
-            At the previous observation, estimate slope using this contract and
-            the immediate next expiry.
-          </li>
-          <li>
-            Multiply that slope by elapsed calendar days, with a negative sign.
-          </li>
-          <li>
-            Subtract estimated roll-down from the same contract's actual change.
-          </li>
-        </ol>
         <details>
-          <summary>Technical calculation details</summary>
+          <summary>How roll-down is estimated</summary>
+          <ol>
+            <li>
+              At the previous observation, estimate slope using this contract
+              and the immediate next expiry.
+            </li>
+            <li>
+              Multiply that slope by elapsed calendar days, with a negative
+              sign.
+            </li>
+            <li>
+              Subtract estimated roll-down from the same contract's actual
+              change.
+            </li>
+          </ol>
+          <details>
+            <summary>Technical calculation details</summary>
+            <p>
+              <code>
+                estimated_roll_down = -previous_slope_per_day &times;
+                elapsed_calendar_days
+              </code>
+              <br />
+              <code>residual_change = raw_change - estimated_roll_down</code>
+            </p>
+          </details>
           <p>
-            <code>
-              estimated_roll_down = -previous_slope_per_day &times;
-              elapsed_calendar_days
-            </code>
-            <br />
-            <code>residual_change = raw_change - estimated_roll_down</code>
+            This uses previous-curve inputs only: a local linear, constant-shape
+            approximation in time-to-expiry. Weekend gaps use calendar days.
+            Missing or untraded required observations invalidate the
+            decomposition. Contract prices and interpolated chart lines do not
+            establish fills. Purity assumptions remain unverified.
           </p>
-        </details>
-        <p>
-          This uses previous-curve inputs only: a local linear, constant-shape
-          approximation in time-to-expiry. Weekend gaps use calendar days.
-          Missing or untraded required observations invalidate the
-          decomposition. Contract prices and interpolated chart lines do not
-          establish fills. Purity assumptions remain unverified.
-        </p>
-        <p>
-          Roll-down expiry defaults to the nearest expiry at least three
-          calendar days after the historical data date, otherwise the latest
-          available. A selected expiry is preserved when available after product
-          or purity changes.
-        </p>
-        <details>
-          <summary>Technical assumptions</summary>
           <p>
-            Trade activity: <code>has_trade</code>. Decomposition check:{' '}
-            <code>decomposition_valid</code> (true = Passed; false = Failed).
+            Roll-down expiry defaults to the nearest expiry at least three
+            calendar days after the historical data date, otherwise the latest
+            available. A selected expiry is preserved when available after
+            product or purity changes.
           </p>
-          {r && <p>{r.explanation}</p>}
-          <ul>
-            {[
-              ...new Set([
-                ...(c?.assumptions ?? []),
-                ...(r?.assumptions ?? []),
-              ]),
-            ].map((note) => (
-              <li key={note}>{note}</li>
-            ))}
-          </ul>
+          <details>
+            <summary>Technical assumptions</summary>
+            <p>
+              Trade activity: <code>has_trade</code>. Decomposition check:{' '}
+              <code>decomposition_valid</code> (true = Passed; false = Failed).
+            </p>
+            {r && <p>{r.explanation}</p>}
+            <ul>
+              {[
+                ...new Set([
+                  ...(c?.assumptions ?? []),
+                  ...(r?.assumptions ?? []),
+                ]),
+              ].map((note) => (
+                <li key={note}>{note}</li>
+              ))}
+            </ul>
+          </details>
         </details>
       </section>
     </div>

@@ -1,3 +1,4 @@
+import DataContext from '@/components/DataContext'
 import { lazy, Suspense } from 'react'
 import { useOutletContext } from 'react-router-dom'
 
@@ -25,14 +26,7 @@ function SourceLabel<T extends DataResponse>({
 }) {
   if (!response) return null
   return (
-    <div className="dataset-source">
-      <span
-        className={`source-badge ${response.source === 'Offline snapshot' ? 'offline' : ''}`}
-      >
-        {response.source}
-      </span>
-      <span>As of {response.data.data_as_of ?? 'unavailable'}</span>
-    </div>
+    <DataContext date={response.data.data_as_of} source={response.source} />
   )
 }
 function ErrorNotice<T>({
@@ -175,39 +169,23 @@ export function DashboardOverviewPage() {
         <div>
           <p className="eyebrow">RESEARCH WORKSPACE</p>
           <h1>Overview</h1>
-          <p className="page-description">
-            A common basis for four gold futures contracts.
-          </p>
         </div>
-        <span className="badge historical-label">Historical observations</span>
       </div>
       <ErrorNotice resource={meta} label="Metadata" />
-      <div className="basis-note">
-        <span className="note-icon" aria-hidden="true">
-          i
-        </span>
-        <div>
-          <strong>Purity assumptions unverified.</strong>
-          <p>Historical settlement prices, not executable quotes.</p>
-          <details>
-            <summary>Normalization details</summary>
-            <p>
-              {basis
-                ? `${basis.unit}; purity adjustment off (experimental when enabled). Quote grams: ${Object.entries(
-                    basis.quote_grams,
-                  )
-                    .map(([symbol, grams]) => `${symbol} ${grams} g`)
-                    .join(' · ')}. Purity assumptions: ${Object.entries(
-                    basis.purity_assumptions,
-                  )
-                    .map(([symbol, purity]) => `${symbol} ${purity}`)
-                    .join(' · ')}.`
-                : 'Normalization metadata is not available yet.'}{' '}
-              Close/settlement is not an executable price.
-            </p>
-          </details>
-        </div>
-      </div>
+      <details className="calculation-details">
+        <summary>Calculation details</summary>
+        <p>
+          {basis
+            ? `${basis.unit}; quote-size conversion with purity adjustment off. Assumed purity is experimental and unverified.`
+            : 'Calculation basis unavailable.'}
+        </p>
+        <p>
+          {basis &&
+            Object.entries(basis.quote_grams)
+              .map(([symbol, grams]) => `${symbol}: ${grams} g`)
+              .join(' · ')}
+        </p>
+      </details>
       <section aria-labelledby="reference-heading">
         <div className="section-heading">
           <h2 id="reference-heading">Reference contracts</h2>
@@ -275,16 +253,24 @@ export function DashboardOverviewPage() {
               <ReferencePriceChart response={pricesData} />
             </Suspense>
             <p className="chart-caption">
-              {pricesData.normalization.unit} ·{' '}
-              {pricesData.purity_adjustment
-                ? 'Experimental purity adjustment enabled; assumptions unverified'
-                : 'Quote-size conversion only; purity adjustment off'}
-              . Missing observations break the line. {excluded} untraded
-              observations excluded from traded-price lines; {missing} traded
-              observations have missing prices.
+              {pricesData.normalization.unit}
+              {pricesData.purity_adjustment &&
+                ' · Experimental purity adjustment'}
             </p>
+            {(excluded > 0 || missing > 0) && (
+              <p className="quality-notice">
+                {excluded > 0 &&
+                  `${excluded} untraded observations excluded from the traded line. `}
+                {missing > 0 &&
+                  `${missing} traded observations have missing prices.`}
+              </p>
+            )}
             <details className="history-details">
-              <summary>View accessible price history table</summary>
+              <summary>Chart details and price table</summary>
+              <p>
+                Each line follows one fixed-expiry contract. Missing and
+                untraded observations break the traded line.
+              </p>
               <div className="table-scroll">
                 <table>
                   <caption>
@@ -345,10 +331,6 @@ export function DashboardOverviewPage() {
         <div className="section-heading">
           <div>
             <h2 id="expiry-heading">Upcoming expiries</h2>
-            <p className="section-description">
-              Calendar days remaining as of{' '}
-              {overviewData?.data_as_of ?? 'the historical observation date'}.
-            </p>
           </div>
           <SourceLabel response={overview.response} />
         </div>

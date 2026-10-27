@@ -1,5 +1,13 @@
 # Auraxis backend
 
+Data Coverage: `GET /api/coverage?start=2026-10-01&end=2026-10-31`
+with optional `product=GOLDTEN` (omit for all configured products). Both ISO
+dates are required; `start <= end`, maximum 31 inclusive days, otherwise HTTP 422. Valid empty selections return HTTP 200 with empty observed counts.
+Per-date summaries/details are read-only. File dates are persisted ingestion
+metadata and file-wide, not product attribution. Expected/missing-contract and
+official-holiday diagnostics remain unavailable. See
+[Data Coverage schema, definitions and verification](../docs/PHASE2_DATA_COVERAGE.md).
+
 Current status and run commands: [LOCAL_RUN_HANDOVER.md](../docs/LOCAL_RUN_HANDOVER.md).
 Purity adjustment defaults OFF; explicit `purity=true` examples below are experimental scenarios, not defaults.
 Final audit classification: [FINAL_LOCAL_READINESS.md](../docs/FINAL_LOCAL_READINESS.md).
@@ -268,3 +276,31 @@ idealized settlement simulations. Only default fractional mode is snapshotted.
 ```powershell
 Invoke-RestMethod 'http://localhost:8010/api/backtest?pair=GOLDTEN-GOLDPETAL&sizing_mode=integer_lots'
 ```
+
+# Saved Research Workspace
+
+Private CRUD endpoints are `/api/workspaces` (GET/POST) and
+`/api/workspaces/{id}` (GET/PATCH/DELETE). They reuse cookie sessions and the
+existing exact-Origin mutation guard. Set `WORKSPACE_DATABASE_PATH` to a private
+SQLite path separate from `AUTH_DATABASE_PATH` and `DATABASE_URL`.
+No market tables or snapshot schemas are changed. See
+[Phase 3 API, storage and backup documentation](../docs/PHASE3_SAVED_RESEARCH.md).
+
+From backend, verify with disposable private storage/accounts over actual local
+HTTP (does not require stopping the existing backend):
+
+```powershell
+.\.venv\Scripts\python.exe scripts/verify_workspaces.py
+```
+
+# My Profile
+
+`GET /api/auth/profile` returns the authenticated user's public account fields
+and `created_at: null` (creation dates were not stored). `PATCH /api/auth/profile`
+accepts only `{"name":"Updated name"}`; it requires the existing cookie session
+and an allowed Origin. Names are trimmed, 1–100 Unicode characters, without
+control characters. No schema migration or creation-date backfill occurs.
+Sessions and workspaces remain valid. Responses/errors are private/no-store.
+See [Phase 4 API/privacy and verification report](../docs/PHASE4_MY_PROFILE.md).
+The existing `scripts/verify_workspaces.py` additionally verifies real HTTP
+login → profile → name update → session refresh → logout with disposable stores.

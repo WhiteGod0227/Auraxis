@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import CrowMascot from '@/components/CrowMascot'
 import { auth } from '@/lib/auth'
+import { safeReturn } from '@/lib/workspaces'
 import '@/styles/login.css'
 
 export function LoginPage() {
@@ -10,6 +11,7 @@ export function LoginPage() {
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
   const navigate = useNavigate()
+  const [params] = useSearchParams()
   const switchFace = () => {
     const nextFace = signup ? 'login-face' : 'signup-face'
     setSignup((value) => !value)
@@ -31,7 +33,7 @@ export function LoginPage() {
         await auth.signup(String(values.get('name') ?? ''), email, password)
       else await auth.login(email, password)
       form.reset()
-      navigate('/', { replace: true })
+      navigate(safeReturn(params.get('returnTo')), { replace: true })
     } catch (error) {
       setMessage(
         error instanceof Error
@@ -147,11 +149,11 @@ export function LoginPage() {
                   {back ? 'Log in' : 'Sign up'}
                 </button>
               </p>
-              <p className="auth-preview-note">
-                {back
-                  ? 'Use 8–128 characters for your password.'
-                  : 'Your account stays signed in on this browser until you sign out or the session expires.'}
-              </p>
+              {back && (
+                <p className="auth-preview-note">
+                  Use 8–128 characters for your password.
+                </p>
+              )}
             </form>
           ))}
         </div>

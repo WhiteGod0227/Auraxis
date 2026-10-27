@@ -1,7 +1,16 @@
+import DataContext from '@/components/DataContext'
 import { lazy, Suspense, useCallback, useState } from 'react'
 import CrowLoader from '@/components/CrowLoader'
 import { api } from '@/lib/api'
 import { useResource } from '@/lib/useResource'
+import SaveResearch from '@/components/SaveResearch'
+import { useWorkspace } from '@/lib/workspaceContext'
+import {
+  backtestConfiguration,
+  researchCandidate,
+  restoredExpiry,
+  selection,
+} from '@/lib/workspaces'
 import {
   backtestPairs,
   completedMetrics,
@@ -56,19 +65,40 @@ const reading = (v: number | null | undefined, money = false) =>
     ? (money ? currency : number).format(v)
     : 'Unavailable'
 export function BacktestPage() {
-  const [draft, setDraft] = useState<BacktestDraft>({ ...defaultDraft })
-  const [applied, setApplied] = useState<BacktestDraft>({ ...defaultDraft })
-  const [preferred, setPreferred] = useState<string>()
+  const workspace = useWorkspace()
+  const saved =
+    workspace?.configuration.kind === 'backtest'
+      ? workspace.configuration
+      : undefined
+  const initial = saved
+    ? (Object.fromEntries(
+        Object.keys(defaultDraft).map((key) => [
+          key,
+          saved.query[key as keyof typeof saved.query],
+        ]),
+      ) as BacktestDraft)
+    : { ...defaultDraft }
+  const [draft, setDraft] = useState<BacktestDraft>(initial)
+  const [applied, setApplied] = useState<BacktestDraft>(initial)
+  const [requestBase, setRequestBase] = useState(saved?.query)
+  const [preferred, setPreferred] = useState<string | undefined>(
+    saved?.expiry.mode === 'explicit' ? saved.expiry.value : undefined,
+  )
   const [validation, setValidation] = useState<string>()
   const load = useCallback(
-    (signal: AbortSignal) => api.backtest(draftParameters(applied), signal),
-    [applied],
+    (signal: AbortSignal) =>
+      api.backtest({ ...requestBase, ...draftParameters(applied) }, signal),
+    [requestBase, applied],
   )
   const resource = useResource(load)
   const response = resource.response
   const data = response?.data
   const expiry = data
-    ? selectBacktestExpiry(data.reports, data.data_as_of, preferred)
+    ? restoredExpiry(
+        data.reports.map((r) => r.expiry),
+        saved ? (preferred ? selection(preferred) : saved.expiry) : undefined,
+        () => selectBacktestExpiry(data.reports, data.data_as_of, preferred),
+      )
     : undefined
   const report = data?.reports.find((r) => r.expiry === expiry)
   const metric = report?.metrics
@@ -80,6 +110,7 @@ export function BacktestPage() {
     setPreferred(expiry ?? preferred)
     setDraft(defaults)
     setApplied({ ...defaults })
+    setRequestBase(undefined)
     setValidation(undefined)
   }
   const edit = <K extends keyof BacktestDraft>(
@@ -93,44 +124,50 @@ export function BacktestPage() {
     <div className="overview-page backtest-page">
       <div className="page-heading">
         <div>
-          <p className="eyebrow">INDEPENDENT FIXED-EXPIRY SIMULATIONS</p>
           <h1>Backtest</h1>
-          <p className="page-description">
-            Explore a settlement-based simulation of fixed-expiry relative
-            value, including transaction costs and outstanding positions.
-          </p>
         </div>
       </div>
+      <SaveResearch
+        selectionLabel={
+          report
+            ? `${report.configuration.pair} · ${formatDate(report.expiry)}`
+            : undefined
+        }
+        currentContext={
+          response
+            ? { data_as_of: response.data.data_as_of, source: response.source }
+            : undefined
+        }
+        draftChanged={changed}
+        candidate={researchCandidate(
+          response,
+          resource.loading,
+          data && report
+            ? backtestConfiguration(data, preferred ? expiry : undefined)
+            : undefined,
+        )}
+      />
+      {saved && data && !report && (
+        <p className="error-notice" role="alert">
+          Saved expiry is unavailable. No default report has been substituted.
+          Select another expiry explicitly to continue.
+        </p>
+      )}
       {report && metric && (
         <>
           <section className="panel bt-verdict">
-            <p>
-              <strong>{report.configuration.pair}</strong> · Expiry{' '}
-              {formatDate(report.expiry)} ·{' '}
-              {report.configuration.sizing_mode === 'integer_lots'
-                ? 'Integer lots (rounded down)'
-                : 'Idealized fractional sizing'}{' '}
-              · Costs {report.configuration.cost_bps_per_leg_per_side} bps per
-              leg per side.
-            </p>
             {changed && (
               <p className="ts-warning" role="status">
                 Previous run—apply changes to update
               </p>
             )}
-            <h2>API-generated verdict and sample limitations</h2>
-            <p className="bt-api-verdict">{report.verdict}</p>
-            <p>
-              Selected sample: {metric.session_count} sessions,{' '}
-              {metric.completed_count} completed trades;{' '}
-              {formatDate(metric.first_simulation_date)} to{' '}
-              {formatDate(metric.last_simulation_date)}.
-            </p>
-            {metric.warnings.map((warning) => (
-              <p className="ts-warning" key={warning}>
-                {warning}
-              </p>
-            ))}
+            <details>
+              <summary>Result interpretation</summary>
+              <p className="bt-api-verdict">{report.verdict}</p>
+              {metric.warnings.map((warning) => (
+                <p key={warning}>{warning}</p>
+              ))}
+            </details>
           </section>
         </>
       )}
@@ -147,10 +184,7 @@ export function BacktestPage() {
         }}
       >
         <div className="section-heading">
-          <h2>Draft settings</h2>
-          <span className="badge">
-            {changed ? 'Edited - not applied' : 'Matches submitted settings'}
-          </span>
+          <h2>Simulation settings</h2>
         </div>
         <div className="rv-controls bt-controls">
           <label>
@@ -229,24 +263,19 @@ export function BacktestPage() {
                 }
                 onChange={(e) => edit(control.key, Number(e.target.value))}
               />
-              <small>
-                {control.min}-{control.max}; step {control.step}
-              </small>
             </div>
           ))}
         </div>
         <details>
-          <summary>Technical simulation defaults</summary>
+          <summary>Fixed settings</summary>
           <p className="section-description">
-            Fixed defaults: window=10; min_periods=5;
-            expiry_buffer_calendar_days=3; notional_per_leg=1000000;
-            min_oi_grams=0. Purity assumptions remain unverified.
+            History window: {cfg?.window ?? 'Unavailable'} observations; minimum
+            history: {cfg?.min_periods ?? 'Unavailable'} observations. Expiry
+            buffer: {cfg?.expiry_buffer_calendar_days ?? 'Unavailable'} calendar
+            days. Notional per leg: {reading(cfg?.notional_per_leg, true)}.
+            Minimum open interest: {cfg?.min_oi_grams ?? 'Unavailable'} g.
           </p>
         </details>
-        <p>
-          Exploring settings on this short historical dataset is not validation.
-          Parameters are never automatically tuned.
-        </p>
         {validation && (
           <p className="error-notice" role="alert" id="bt-validation">
             {numericControls.reduce(
@@ -271,10 +300,7 @@ export function BacktestPage() {
             Reset to defaults
           </button>
         </div>
-        <p className="section-description">
-          Editing controls does not request a simulation. Displayed results keep
-          their applied settings until a new submission completes.
-        </p>
+        <p className="section-description">Run simulation to apply changes.</p>
       </form>
       {resource.loading && (
         <div className="panel">
@@ -301,52 +327,52 @@ export function BacktestPage() {
       {response && data && (
         <>
           <section className="panel bt-applied">
-            <div className="section-heading">
-              <h2>Selected simulation</h2>
-              <span
-                className={`source-badge ${response.source === 'Offline snapshot' ? 'offline' : ''}`}
-              >
-                {response.source}
-              </span>
-            </div>
-            <p>
-              Historical data as of {formatDate(data.data_as_of)}. Data window:{' '}
-              {formatDate(data.data_window.first_trade_date)} to{' '}
-              {formatDate(data.data_window.last_trade_date)}. {data.aggregation}
-              .
-            </p>
-            <p>
-              {cfg?.use_purity_adjustment
-                ? 'Purity adjustment enabled'
-                : 'Purity adjustment disabled'}
-            </p>
+            <DataContext
+              date={data.data_as_of}
+              source={response.source}
+              experimental={cfg?.use_purity_adjustment}
+            />
             <details>
-              <summary>Applied simulation settings</summary>
+              <summary>Applied settings</summary>
+              <dl className="settings-list">
+                <dt>Pair</dt>
+                <dd>{cfg?.pair}</dd>
+                <dt>Sizing</dt>
+                <dd>
+                  {cfg?.sizing_mode === 'integer_lots'
+                    ? 'Integer lots'
+                    : 'Fractional sizing'}
+                </dd>
+                <dt>Purity adjustment</dt>
+                <dd>{cfg?.use_purity_adjustment ? 'Experimental' : 'Off'}</dd>
+                <dt>Entry / exit z-score</dt>
+                <dd>
+                  {cfg?.z_entry} / {cfg?.z_exit}
+                </dd>
+                <dt>Costs per leg, per side</dt>
+                <dd>{cfg?.cost_bps_per_leg_per_side} bps</dd>
+                <dt>Minimum volume / open interest</dt>
+                <dd>
+                  {cfg?.min_volume_grams} g / {cfg?.min_oi_grams} g
+                </dd>
+                <dt>Maximum holding period</dt>
+                <dd>{cfg?.max_hold_sessions} sessions</dd>
+                <dt>History window / minimum observations</dt>
+                <dd>
+                  {cfg?.window} / {cfg?.min_periods}
+                </dd>
+                <dt>Expiry buffer</dt>
+                <dd>{cfg?.expiry_buffer_calendar_days} calendar days</dd>
+                <dt>Notional per leg</dt>
+                <dd>{reading(cfg?.notional_per_leg, true)}</dd>
+                <dt>Expiry filter</dt>
+                <dd>{cfg?.requested_expiry ?? 'All expiries'}</dd>
+              </dl>
               <p>
-                Pair {cfg?.pair}; sizing {cfg?.sizing_mode}; purity{' '}
-                {String(cfg?.use_purity_adjustment)}; z_entry {cfg?.z_entry};
-                z_exit {cfg?.z_exit}; cost_bps_per_leg_per_side{' '}
-                {cfg?.cost_bps_per_leg_per_side}; min_volume_grams{' '}
-                {cfg?.min_volume_grams}; max_hold_sessions{' '}
-                {cfg?.max_hold_sessions}.
-              </p>
-              <p>
-                window {cfg?.window}; min_periods {cfg?.min_periods}; expiry
-                buffer {cfg?.expiry_buffer_calendar_days} calendar days;
-                notional per leg {reading(cfg?.notional_per_leg, true)}; minimum
-                OI {cfg?.min_oi_grams} g. All expiry reports requested; no date
-                filters.
+                Held-contract P&amp;L uses raw quote-size-normalized prices.
+                Expiries are reported separately, not as a portfolio.
               </p>
             </details>
-            <p>
-              Signal normalization: {data.normalization.unit},{' '}
-              {cfg?.use_purity_adjustment
-                ? data.normalization.basis
-                : 'raw quote-size normalization; purity off'}
-              . Purity verification:{' '}
-              {data.normalization.purity_verification_status}. Held-contract
-              P&amp;L uses raw normalized prices.
-            </p>
             <label className="ts-expiry-control">
               Selected report expiry
               <select
@@ -363,11 +389,6 @@ export function BacktestPage() {
                 ))}
               </select>
             </label>
-            <p className="section-description">
-              Expiry selection is local. Initial selection: earliest expiry at
-              least three calendar days after historical data_as_of, otherwise
-              latest available. No portfolio aggregation.
-            </p>
           </section>
           {!report && (
             <div className="panel empty-state">
@@ -378,16 +399,6 @@ export function BacktestPage() {
           {report && metric && complete && (
             <>
               <section className="panel bt-summary">
-                <h2>Selected expiry summary - {formatDate(report.expiry)}</h2>
-                <p>
-                  Applied: {report.configuration.pair} ·{' '}
-                  {formatDate(report.expiry)} ·{' '}
-                  {report.configuration.sizing_mode === 'integer_lots'
-                    ? 'Integer lots (rounded down)'
-                    : 'Idealized fractional sizing'}{' '}
-                  · Costs {report.configuration.cost_bps_per_leg_per_side} bps
-                  per leg per side.
-                </p>
                 {changed && (
                   <p className="ts-warning">
                     Previous run—apply changes to update
@@ -464,13 +475,6 @@ export function BacktestPage() {
                     </div>
                   ))}
                 </div>
-                <p>
-                  Valuation quality: <strong>{metric.valuation_quality}</strong>
-                  ; stale sessions: {metric.stale_session_count}; unavailable
-                  sessions: {metric.unavailable_session_count}. Drawdown based
-                  on stale marks: {String(metric.drawdown_based_on_stale_marks)}
-                  .
-                </p>
                 <div className="bt-breakdown">
                   <h3>Separate accounting categories</h3>
                   <div
@@ -536,9 +540,7 @@ export function BacktestPage() {
               <section className="panel bt-equity">
                 <h2>Cumulative simulated P&amp;L</h2>
                 <p className="section-description">
-                  Returned cumulative gross and net P&amp;L in rupees. Not
-                  actual account equity. Missing valuations remain gaps; no
-                  additional forward filling.
+                  Rs · simulated gross and net P&amp;L, not account equity.
                 </p>
                 {metric.stale_session_count > 0 && (
                   <p className="ts-warning">
@@ -567,8 +569,12 @@ export function BacktestPage() {
                 )}
                 <details>
                   <summary>
-                    Valuation observations ({report.equity_curve.length})
+                    Chart details and valuations ({report.equity_curve.length})
                   </summary>
+                  <p>
+                    Missing valuations remain gaps. No additional forward
+                    filling is applied.
+                  </p>
                   <div
                     className="table-scroll bt-table-scroll"
                     tabIndex={0}
@@ -613,21 +619,14 @@ export function BacktestPage() {
               <section className="panel bt-cost">
                 <h2>Closed-trade cost sensitivity</h2>
                 <p>
-                  Trade dates and quantities are fixed. Outstanding positions
-                  are excluded.
-                </p>
-                <p>
-                  Excluded: {report.cost_tolerance.excluded_open_count} open and{' '}
+                  Completed trades only · excludes{' '}
+                  {report.cost_tolerance.excluded_open_count} open and{' '}
                   {report.cost_tolerance.excluded_unresolved_count} unresolved
-                  positions. This chart reprices completed trades; changing the
-                  simulation cost control requires a new submission.
+                  positions.
                 </p>
                 <div className="bt-tolerance">
                   <h3>Closed-trade cost tolerance</h3>
                   <p>{costToleranceMessage(report.cost_tolerance)}</p>
-                  <p className="section-description">
-                    Not whole-strategy break-even.
-                  </p>
                 </div>
                 {report.cost_sensitivity.length ? (
                   <Suspense
@@ -641,7 +640,12 @@ export function BacktestPage() {
                   </p>
                 )}
                 <details>
-                  <summary>Returned cost sensitivity values</summary>
+                  <summary>Cost model details and values</summary>
+                  <p>
+                    Trade dates and quantities are fixed. Changing simulation
+                    costs requires a new run. This is not whole-strategy
+                    break-even.
+                  </p>
                   <div
                     className="table-scroll bt-table-scroll"
                     tabIndex={0}
@@ -681,21 +685,26 @@ export function BacktestPage() {
                 <BacktestTables report={report} />
               </Suspense>
               <section className="panel bt-assumptions">
-                <h2>Simulation limits</h2>
-                <p>
-                  Next-session execution uses idealized settlements. Liquidity
-                  screening is not market depth or fill assurance. Outstanding
-                  and unresolved positions limit final conclusions.
-                </p>
                 <details>
-                  <summary>Detailed assumptions</summary>
-                  <ul>
-                    {[
-                      ...new Set([...data.assumptions, ...report.assumptions]),
-                    ].map((assumption) => (
-                      <li key={assumption}>{assumption}</li>
-                    ))}
-                  </ul>
+                  <summary>Execution assumptions</summary>
+                  <p>
+                    Next-session execution uses idealized settlements. Liquidity
+                    screening is not market depth or fill assurance. Outstanding
+                    and unresolved positions limit final conclusions.
+                  </p>
+                  <details>
+                    <summary>Detailed assumptions</summary>
+                    <ul>
+                      {[
+                        ...new Set([
+                          ...data.assumptions,
+                          ...report.assumptions,
+                        ]),
+                      ].map((assumption) => (
+                        <li key={assumption}>{assumption}</li>
+                      ))}
+                    </ul>
+                  </details>
                 </details>
               </section>
             </>

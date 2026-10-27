@@ -12,6 +12,9 @@ import { MethodologyPage } from '@/pages/MethodologyPage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
 import { RelativeValuePage } from '@/pages/RelativeValuePage'
 import { TermStructurePage } from '@/pages/TermStructurePage'
+import { ResearchPage } from '@/pages/ResearchPage'
+import { ProfilePage } from '@/pages/ProfilePage'
+import WorkspaceBoundary from '@/components/WorkspaceBoundary'
 
 export default function App() {
   return (
@@ -20,9 +23,32 @@ export default function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/app" element={<AppLayout />}>
         <Route index element={<DashboardOverviewPage />} />
-        <Route path="relative-value" element={<RelativeValuePage />} />
-        <Route path="term-structure" element={<TermStructurePage />} />
-        <Route path="backtest" element={<BacktestPage />} />
+        <Route
+          path="relative-value"
+          element={
+            <WorkspaceBoundary>
+              <RelativeValuePage />
+            </WorkspaceBoundary>
+          }
+        />
+        <Route
+          path="term-structure"
+          element={
+            <WorkspaceBoundary>
+              <TermStructurePage />
+            </WorkspaceBoundary>
+          }
+        />
+        <Route
+          path="backtest"
+          element={
+            <WorkspaceBoundary>
+              <BacktestPage />
+            </WorkspaceBoundary>
+          }
+        />
+        <Route path="research" element={<ResearchPage />} />
+        <Route path="profile" element={<ProfilePage />} />
         <Route path="calendar" element={<CalendarPage />} />
         <Route path="alerts" element={<AlertsPage />} />
         <Route path="data-health" element={<DataHealthPage />} />

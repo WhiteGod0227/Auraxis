@@ -18,6 +18,8 @@ from sqlalchemy.engine import make_url
 
 from app.analytics.backtest import PAIRS
 from app.api.analytics import router as analytics_router
+from app.api.coverage import coverage_requests, validate_range
+from app.api.coverage import router as coverage_router
 from app.api.database import get_connection
 from app.api.foundation import router as foundation_router
 from app.core.config import BACKEND_DIR, get_settings
@@ -26,7 +28,11 @@ SCHEMA_VERSION = 1
 DEFAULT_OUTPUT = BACKEND_DIR.parent / "frontend" / "public" / "snapshots"
 ROUTES = {
     route.path: route
-    for route in [*foundation_router.routes, *analytics_router.routes]
+    for route in [
+        *foundation_router.routes,
+        *analytics_router.routes,
+        *coverage_router.routes,
+    ]
     if isinstance(route, APIRoute)
 }
 LIMITATIONS = [
@@ -84,6 +90,20 @@ def canonical_parameters(endpoint, parameters=None, *, settings=None):
         if endpoint == "/api/data-health" and name == "min_volume_grams":
             value = settings.api_min_volume_grams if value is None else value
         applied[name] = _json_value(value)
+    if endpoint == "/api/coverage":
+        try:
+            validate_range(
+                date.fromisoformat(applied["start"]), date.fromisoformat(applied["end"])
+            )
+        except Exception:
+            raise ValueError(
+                "Coverage requires at most 31 inclusive days and start <= end"
+            ) from None
+        if (
+            applied["product"] is not None
+            and applied["product"] not in settings.bhavcopy_symbols
+        ):
+            raise ValueError("Unsupported coverage product")
     return dict(sorted(applied.items()))
 
 
@@ -97,7 +117,7 @@ def request_key(endpoint, parameters=None, *, settings=None):
     )
 
 
-def supported_requests(settings):
+def supported_requests(settings, connection=None):
     requests = [
         (path, {})
         for path in ("/api/meta", "/api/overview", "/api/prices", "/api/data-health")
@@ -124,7 +144,7 @@ def supported_requests(settings):
         ):
             for purity in (True, False):
                 requests.append(("/api/backtest", dict(pair=pair, purity=purity)))
-    return requests
+    return [*requests, *coverage_requests(connection, settings)]
 
 
 def build_payload(endpoint, parameters, connection, settings):
@@ -206,7 +226,7 @@ def export_snapshots(*, settings=None, output_dir=None):
         payloads = []
         request_keys = set()
         with consistent_connection(settings) as connection:
-            for endpoint, query in supported_requests(settings):
+            for endpoint, query in supported_requests(settings, connection):
                 parameters = canonical_parameters(endpoint, query, settings=settings)
                 payload = build_payload(endpoint, parameters, connection, settings)
                 payloads.append(payload)

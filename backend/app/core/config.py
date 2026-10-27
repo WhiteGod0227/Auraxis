@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:///./auraxis.db"
     data_cache_dir: Path = Path("./data_cache")
     auth_database_path: Path = Path("./auth.sqlite3")
+    workspace_database_path: Path = Path("./workspaces.sqlite3")
     auth_cookie_secure: bool = False  # Local HTTP only; enable for hosted HTTPS.
     auth_session_hours: int = Field(default=24, ge=1, le=720)
     lot_grams: dict[str, int] = {

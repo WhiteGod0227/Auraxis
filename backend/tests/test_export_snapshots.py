@@ -31,12 +31,12 @@ def test_export_without_http_files_schemas_checksums_and_builders(
     before = hashlib.sha256((tmp_path / "api.db").read_bytes()).hexdigest()
     with patch("httpx.Client", side_effect=AssertionError("No HTTP permitted")):
         manifest = exporter.export_snapshots(settings=settings, output_dir=output)
-    assert len(manifest["files"]) == 44
+    assert len(manifest["files"]) == 49
     assert exporter.verify_snapshot_set(output) == manifest
     assert manifest["data_as_of"] == "2026-10-13"
     assert manifest["generated_at_utc"].endswith("Z")
     assert manifest["purity_verification_status"] == "unverified"
-    assert len(set(manifest["supported_offline_configurations"])) == 44
+    assert len(set(manifest["supported_offline_configurations"])) == 49
     with engine.connect() as connection:
         for entry in manifest["files"]:
             payload = read_payload(output, entry)
@@ -54,7 +54,7 @@ def test_export_without_http_files_schemas_checksums_and_builders(
         )
         assert read_payload(output, entry) == direct.model_dump(mode="json")
     assert hashlib.sha256((tmp_path / "api.db").read_bytes()).hexdigest() == before
-    assert len(list(output.rglob("*.json"))) == 45
+    assert len(list(output.rglob("*.json"))) == 50
 
 
 def test_canonical_matching_defaults_booleans_dates_and_customs(analytics_api):
