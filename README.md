@@ -1,5 +1,13 @@
 # Auraxis
 
+[Project status report: implemented features, verification and next steps](docs/PROJECT_STATUS_REPORT.md) — updated 30 October 2026. See [fresh local acceptance and release handoff](docs/LOCAL_ACCEPTANCE_2026-10-30.md) for PASS / NOT TESTED results and remaining hosting requirements.
+
+Account security: `/app/security` adds authenticator MFA, password changes and offline recovery codes; `/app/recover` resets using a saved code. Alerts can explicitly sync rules to an account. See [security/sync behavior and limits](docs/ACCOUNT_SECURITY_AND_SYNC.md). Email ownership verification and email delivery are not configured.
+
+Guided walkthrough: `/app/demo` follows comparison → calculation → costs → saved research using actual results and one common expiry. See the [presenter script](docs/HACKATHON_DEMO.md) and [validation worksheet](docs/USER_VALIDATION.md). Deployment remains pending; [hosting preparation](docs/DEPLOYMENT.md) excludes market data and preserves existing local services.
+
+Historical [Alerts](docs/ALERTS.md) are available at `/app/alerts`. See the [completion checklist](docs/REMAINING_WORK_CHECKLIST.md) and [contract-basis review](docs/CONTRACT_BASIS_REVIEW_2026-10-28.md) for verified work and external blockers.
+
 Historical research dashboard for MCX gold futures: GOLDM, GOLDTEN,
 GOLDGUINEA and GOLDPETAL. Compare quote-unit-normalized prices, inspect
 fixed-expiry maturity differences and explore settlement-based simulations.
@@ -126,8 +134,9 @@ Salted PBKDF2 password hashes and hashed opaque sessions are stored in the
 ignored auth database. The frontend uses HTTP-only session cookies; auth POSTs
 require an allowed Origin. See [auth setup and limits](docs/LOGIN_UI.md).
 Research APIs and static snapshots remain public demo resources: login does
-not protect private market datasets. Email verification, password recovery
-and MFA are not implemented. Cross-site hosting needs cookie/domain review.
+not protect private market datasets. Authenticator MFA, password changes and
+saved-code recovery are implemented; email verification and email-reset delivery
+are not configured. Cross-site hosting needs cookie/domain review.
 Never commit authentication databases or sessions.
 
 ## Available checks
@@ -224,7 +233,8 @@ sign out. Names support Unicode and are trimmed, with 1–100 characters and no
 control characters. Only the name is editable; account identity, sessions and
 saved research are preserved.
 
-The existing account store does not record creation timestamps. Profile returns
-`created_at: null` and shows **Unavailable**; no dates are inferred or backfilled.
+New signups record their actual UTC creation timestamp. Legacy accounts without
+creation evidence return `created_at: null` and show **Unavailable**; no dates
+are inferred or backfilled. Login requirements are unchanged.
 Private profile requests require the backend and never use offline snapshots.
 See [Phase 4 implementation and verification](docs/PHASE4_MY_PROFILE.md).

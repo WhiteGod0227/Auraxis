@@ -257,9 +257,10 @@ def test_recorded_diagnostics_truncation_and_no_private_notes(api):
     assert body["thin_volume_counts_by_product"]["GOLDPETAL"] == 1
     assert body["min_volume_grams"] == 50
     assert not body["unavailable_diagnostics"]["row_level_validation"]["available"]
-    assert not body["unavailable_diagnostics"]["structured_volume_mismatches"][
-        "available"
-    ]
+    assert body["unavailable_diagnostics"]["structured_volume_mismatches"]["available"]
+    assert body["volume_mismatches"]["total_count"] == 0
+    assert body["ingestion_history"]["total_count"] == 0
+    assert "Legacy" in body["ingestion_history"]["definition"]
 
 
 def test_empty_database_and_missing_file_remain_read_only(api, tmp_path):

@@ -32,6 +32,17 @@ for (const name of [
     'data:text/javascript;base64,' + Buffer.from(code).toString('base64')
 }
 const w = await import(urls.workspaces)
+test('demo login return preserves step/expiry and rejects redirects', () => {
+  assert.equal(w.safeReturn('/app/security'), '/app/security')
+  assert.equal(w.safeReturn('/app/alerts'), '/app/alerts')
+  assert.equal(
+    w.safeReturn('/app/demo?step=4&expiry=2026-10-30'),
+    '/app/demo?step=4&expiry=2026-10-30',
+  )
+  assert.equal(w.safeReturn('/app/demo?redirect=https://evil.test'), '/')
+  assert.equal(w.safeReturn('https://evil.test/app/demo?step=4'), '/')
+  assert.equal(w.safeReturn('/app/backtest?step=4'), '/')
+})
 const { session } = await import(urls.auth)
 const { createSessionStore } = await import(urls.sessionStore)
 const { defaultDraft } = await import(urls.backtest)

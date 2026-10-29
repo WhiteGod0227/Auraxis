@@ -173,6 +173,47 @@ class DiagnosticAvailability(ResponseModel):
     reason: str
 
 
+class IngestionAttempt(ResponseModel):
+    id: int
+    recorded_at: str
+    file_name: str
+    trade_date: date | None
+    status: str
+    rows_total: int
+    rows_kept: int
+    error_summary: str | None
+
+
+class VolumeMismatch(ResponseModel):
+    attempt_id: int
+    symbol: str
+    trade_date: date
+    expiry_date: date
+    text_grams: str | None
+    volume_grams: int
+    reason: str
+
+
+class IngestionAttemptPage(ResponseModel):
+    available: bool
+    unavailable_reason: str | None
+    definition: str
+    total_count: int
+    returned_count: int
+    truncated: bool
+    items: list[IngestionAttempt]
+
+
+class VolumeMismatchPage(ResponseModel):
+    available: bool
+    unavailable_reason: str | None
+    definition: str
+    total_count: int
+    returned_count: int
+    truncated: bool
+    items: list[VolumeMismatch]
+
+
 class DataHealthResponse(DataResponse):
     file_records_available: bool
     recorded_file_count: int
@@ -191,3 +232,6 @@ class DataHealthResponse(DataResponse):
     thin_volume_observations: ObservationDiagnosticPage
     unavailable_diagnostics: dict[str, DiagnosticAvailability]
     assumptions: list[str]
+    # Optional additions preserve historical snapshots without these tables/fields.
+    ingestion_history: IngestionAttemptPage | None = None
+    volume_mismatches: VolumeMismatchPage | None = None

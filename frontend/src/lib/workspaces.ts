@@ -84,13 +84,20 @@ export function safeReturn(value: string | null) {
   try {
     const url = new URL(value, 'https://auraxis.invalid')
     const allowed = [
+      '/app/demo',
+      '/app/alerts',
+      '/app/security',
       '/app/profile',
       '/app/research',
       ...Object.values(researchRoutes),
     ]
     return url.origin === 'https://auraxis.invalid' &&
       allowed.includes(url.pathname) &&
-      [...url.searchParams.keys()].every((key) => key === 'workspace')
+      [...url.searchParams.keys()].every((key) =>
+        url.pathname === '/app/demo'
+          ? ['step', 'expiry'].includes(key)
+          : key === 'workspace',
+      )
       ? url.pathname + url.search
       : '/'
   } catch {

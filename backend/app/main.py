@@ -4,11 +4,13 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from app.api.alerts import router as alerts_router
 from app.api.analytics import router as analytics_router
 from app.api.auth import router as auth_router
 from app.api.coverage import router as coverage_router
 from app.api.foundation import router as foundation_router
 from app.api.health import router as health_router
+from app.api.security import router as security_router
 from app.api.workspaces import router as workspace_router
 from app.core.config import get_settings
 from app.core.logging import setup_logging
@@ -30,12 +32,16 @@ app.include_router(analytics_router)
 app.include_router(auth_router)
 app.include_router(coverage_router)
 app.include_router(workspace_router)
+app.include_router(alerts_router)
+app.include_router(security_router)
 
 
 @app.middleware("http")
 async def private_workspace_responses(request, call_next):
     response = await call_next(request)
-    if request.url.path.startswith(("/api/workspaces", "/api/auth/profile")):
+    if request.url.path.startswith(
+        ("/api/workspaces", "/api/auth/profile", "/api/alerts", "/api/auth/security")
+    ):
         response.headers["Cache-Control"] = "private, no-store"
         response.headers["Vary"] = "Cookie, Origin"
     return response
@@ -43,6 +49,26 @@ async def private_workspace_responses(request, call_next):
 
 @app.exception_handler(RequestValidationError)
 async def safe_validation_error(request, exc):
+    if request.url.path.startswith("/api/auth/security"):
+        return JSONResponse(
+            status_code=422,
+            content={
+                "detail": "Check the security fields. New passwords require "
+                "8–128 nonblank characters; codes and passwords are "
+                "never echoed."
+            },
+            headers={"Cache-Control": "private, no-store"},
+        )
+    if request.url.path.startswith("/api/alerts"):
+        return JSONResponse(
+            status_code=422,
+            content={
+                "detail": "Use up to 20 distinct alert rules with valid "
+                "pairs, metrics, positive thresholds up to 100 and "
+                "ISO expiry dates."
+            },
+            headers={"Cache-Control": "private, no-store"},
+        )
     if request.url.path.startswith("/api/auth/profile"):
         return JSONResponse(
             status_code=422,
@@ -93,7 +119,9 @@ async def unexpected_error(request, exc):
             )
         },
     )
-    if request.url.path.startswith(("/api/workspaces", "/api/auth/profile")):
+    if request.url.path.startswith(
+        ("/api/workspaces", "/api/auth/profile", "/api/alerts", "/api/auth/security")
+    ):
         response.headers["Cache-Control"] = "private, no-store"
         response.headers["Vary"] = "Cookie, Origin"
     # ServerErrorMiddleware sits outside CORSMiddleware. Preserve the same

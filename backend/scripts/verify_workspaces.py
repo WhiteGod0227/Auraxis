@@ -9,6 +9,7 @@ import sys
 import tempfile
 import threading
 import time
+from datetime import UTC, datetime
 from pathlib import Path
 
 import httpx
@@ -208,7 +209,10 @@ def verify():
                 assert two.get("/api/workspaces").json()["total"] == 0
                 profile = one.get("/api/auth/profile")
                 assert profile.status_code == 200
-                assert profile.json()["user"]["created_at"] is None
+                created_at = profile.json()["user"]["created_at"]
+                created_time = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+                assert created_time.utcoffset().total_seconds() == 0
+                assert created_time <= datetime.now(UTC)
                 assert profile.headers["cache-control"] == "private, no-store"
                 assert (
                     one.patch(
@@ -237,6 +241,7 @@ def verify():
                 )
                 assert updated.status_code == 200
                 assert updated.json()["user"]["name"] == "आयुष Élodie"
+                assert updated.json()["user"]["created_at"] == created_at
                 assert one.get("/api/auth/me").json()["user"]["name"] == "आयुष Élodie"
                 assert one.cookies.get("auraxis_session") == cookie
                 assert one.get("/api/workspaces").json() == workspaces_before

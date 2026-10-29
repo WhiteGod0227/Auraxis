@@ -117,8 +117,8 @@ export function refreshSession(force = false) {
 export const auth = {
   signup: (name: string, email: string, password: string) =>
     request('signup', 'POST', { name, email, password }),
-  login: (email: string, password: string) =>
-    request('login', 'POST', { email, password }),
+  login: (email: string, password: string, otp = '') =>
+    request('login', 'POST', { email, password, ...(otp ? { otp } : {}) }),
   me: () => request('me'),
   profile: async () => {
     const epoch = session.getSnapshot().epoch

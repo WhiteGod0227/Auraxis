@@ -6,6 +6,7 @@ import App from './App'
 import AppErrorBoundary from './components/AppErrorBoundary'
 import StarBackground from './components/StarBackground'
 import './styles/index.css'
+import './styles/glass.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

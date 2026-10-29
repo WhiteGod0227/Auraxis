@@ -1,10 +1,11 @@
 """Load manually downloaded MCX CSVs into SQLite, preserving every expiry."""
 
 import argparse
+import hashlib
 import logging
 import re
 from dataclasses import dataclass, field
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Literal
@@ -75,6 +76,31 @@ data_health = Table(
     Column("rows_kept", Integer, nullable=False),
     Column("notes", Text, nullable=False),
 )
+ingestion_attempts = Table(
+    "ingestion_attempts",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("recorded_at", String, nullable=False),
+    Column("file_name", String, nullable=False),
+    Column("trade_date", Date),
+    Column("status", String, nullable=False),
+    Column("rows_total", Integer, nullable=False),
+    Column("rows_kept", Integer, nullable=False),
+    Column("notes", Text, nullable=False),
+)
+volume_mismatches = Table(
+    "volume_mismatches",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("attempt_id", Integer, nullable=False, index=True),
+    Column("symbol", String, nullable=False),
+    Column("trade_date", Date, nullable=False),
+    Column("expiry_date", Date, nullable=False),
+    Column("volume_text", Text, nullable=False),
+    Column("text_grams", String),
+    Column("volume_grams", Integer, nullable=False),
+    Column("reason", String, nullable=False),
+)
 
 
 @dataclass
@@ -85,6 +111,7 @@ class LoadResult:
     rows_total: int = 0
     rows_kept: int = 0
     notes: str = ""
+    volume_warnings: list[dict] = field(default_factory=list)
     dataframe: pd.DataFrame = field(
         default_factory=lambda: pd.DataFrame(columns=COLUMNS)
     )
@@ -182,6 +209,23 @@ def _parse(path: Path, settings: Settings, result: LoadResult) -> None:
             or number[2].upper() != "GRMS"
             or text_grams != Decimal(int(row["volume_grams"]))
         ):
+            result.volume_warnings.append(
+                dict(
+                    symbol=row["symbol"],
+                    trade_date=row["trade_date"],
+                    expiry_date=row["expiry_date"],
+                    volume_text=row["volume_text"],
+                    text_grams=str(text_grams) if text_grams is not None else None,
+                    volume_grams=int(row["volume_grams"]),
+                    reason=(
+                        "invalid_volume_text"
+                        if number is None
+                        else "unexpected_volume_unit"
+                        if number[2].upper() != "GRMS"
+                        else "volume_grams_mismatch"
+                    ),
+                )
+            )
             warning = (
                 f"volume mismatch: {row['symbol']} {row['expiry_date']} "
                 f"volume_text={row['volume_text']!r}, "
@@ -198,6 +242,24 @@ def _parse(path: Path, settings: Settings, result: LoadResult) -> None:
 def _store(engine: Engine, result: LoadResult) -> None:
     metadata.create_all(engine)
     with engine.begin() as connection:
+        # Append attempts without changing the idempotent bhav key or erasing
+        # historical failures. Evidence starts here; old attempts are not inferred.
+        attempt = connection.execute(
+            insert(ingestion_attempts).values(
+                recorded_at=datetime.now(UTC).isoformat(),
+                file_name=result.file_name,
+                trade_date=result.trade_date,
+                status=result.status,
+                rows_total=result.rows_total,
+                rows_kept=result.rows_kept,
+                notes=result.notes,
+            )
+        ).inserted_primary_key[0]
+        if result.status == "ok" and result.volume_warnings:
+            connection.execute(
+                insert(volume_mismatches),
+                [dict(attempt_id=attempt, **row) for row in result.volume_warnings],
+            )
         if result.status == "ok":
             records = (
                 result.dataframe.astype(object)
@@ -294,6 +356,21 @@ def main() -> None:
     failed = False
     try:
         for path in paths:
+            duplicate = re.fullmatch(
+                r"BhavCopyDateWise_(\d{8}) \(\d+\)\.csv", path.name
+            )
+            if duplicate:
+                canonical = directory / f"BhavCopyDateWise_{duplicate[1]}.csv"
+                if canonical.is_file():
+                    with path.open("rb") as copy, canonical.open("rb") as original:
+                        identical = hashlib.file_digest(copy, "sha256").digest() == (
+                            hashlib.file_digest(original, "sha256").digest()
+                        )
+                    if identical:
+                        print(
+                            f"{path.name}: skipped identical copy of {canonical.name}"
+                        )
+                        continue
             result = load_file(path, settings=settings, engine=engine)
             print(
                 f"{path.name}: status={result.status} trade_date={result.trade_date} "

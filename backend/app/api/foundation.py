@@ -5,7 +5,7 @@ from math import isfinite
 
 import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import inspect, select
+from sqlalchemy import func, inspect, select
 
 from app.analytics.normalize import normalize_prices
 from app.api.database import get_connection
@@ -16,7 +16,7 @@ from app.api.schemas import (
     PricesResponse,
 )
 from app.core.config import Settings, get_settings
-from app.data.loader import bhav, data_health
+from app.data.loader import bhav, data_health, ingestion_attempts, volume_mismatches
 
 router = APIRouter(prefix="/api", tags=["research data"])
 SELECTION_RULE = (
@@ -316,6 +316,37 @@ def _safe_ingestion_error(status, notes):
     return "CSV import failed; detailed local notes are withheld."
 
 
+def _ingestion_page(connection, table, limit, definition):
+    available = connection is not None and inspect(connection).has_table(table.name)
+    rows = []
+    total = 0
+    if available:
+        total = connection.scalar(select(func.count()).select_from(table))
+        for row in connection.execute(
+            select(table).order_by(table.c.id.desc()).limit(limit)
+        ).mappings():
+            item = dict(row)
+            if "file_name" in item:
+                item["file_name"] = item["file_name"].replace("\\", "/").split("/")[-1]
+                item["error_summary"] = _safe_ingestion_error(
+                    item["status"], item.pop("notes")
+                )
+            else:
+                item.pop("id")
+                # Arbitrary malformed text stays in the private CSV/database.
+                item.pop("volume_text")
+            rows.append(item)
+    return dict(
+        available=available,
+        unavailable_reason=None if available else "No instrumented ingestion records.",
+        definition=definition,
+        total_count=total,
+        returned_count=len(rows),
+        truncated=total > len(rows),
+        items=rows,
+    )
+
+
 @router.get("/data-health", response_model=DataHealthResponse)
 def health_data(
     min_volume_grams: float | None = Query(default=None, ge=0, allow_inf_nan=False),
@@ -328,6 +359,20 @@ def health_data(
     )
     frame, observations_available = _read(connection, bhav)
     files, files_available = _read(connection, data_health)
+    history = _ingestion_page(
+        connection,
+        ingestion_attempts,
+        diagnostic_limit,
+        "Newest recorded attempts first; starts with the instrumented loader. "
+        "Legacy attempts are not reconstructed.",
+    )
+    mismatches = _ingestion_page(
+        connection,
+        volume_mismatches,
+        diagnostic_limit,
+        "Per-attempt row warnings, newest first. Reimports count as separate "
+        "attempts; this is not a count of unique current bhav rows.",
+    )
     file_items = []
     for row in files.sort_values("file_name").itertuples():
         notes = row.notes or ""
@@ -371,9 +416,12 @@ def health_data(
             reason="Loader does not persist row-level validation flags.",
         ),
         structured_volume_mismatches=dict(
-            available=False,
+            available=mismatches["available"],
             reason=(
-                "Volume warnings are free-form file notes; no structured per-row "
+                "Instrumented per-attempt warnings are available separately; "
+                "legacy notes are not reconstructed."
+                if mismatches["available"]
+                else "Volume warnings are free-form file notes; no structured per-row "
                 "mismatch table exists."
             ),
         ),
@@ -446,6 +494,8 @@ def health_data(
             "No bhav table.",
         ),
         unavailable_diagnostics=unavailable,
+        ingestion_history=history,
+        volume_mismatches=mismatches,
         assumptions=[
             (
                 "CSV filename DDMMYYYY is checked against every row Date parsed "
@@ -460,7 +510,10 @@ def health_data(
                 "configured lot_grams."
             ),
             (
-                "Volume text is retained; mismatch warnings do not drop rows and "
+                "Volume text is retained; warnings do not drop rows. New loader "
+                "attempts persist structured warnings; legacy notes are not backfilled."
+                if mismatches["available"]
+                else "Volume text is retained; mismatch warnings do not drop rows and "
                 "are not structured diagnostics."
             ),
             (
@@ -472,7 +525,10 @@ def health_data(
                 "contract-spec validation."
             ),
             (
-                "Only the latest file status is retained per filename; "
+                "File summaries retain the latest status per filename; "
+                "instrumented attempt history is separate and never backfilled."
+                if history["available"]
+                else "Only the latest file status is retained per filename; "
                 "processing-attempt history is unavailable."
             ),
             (

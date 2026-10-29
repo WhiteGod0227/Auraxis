@@ -1,4 +1,5 @@
 import SourceBadge from '@/components/SourceBadge'
+import ContractBasisNote from '@/components/ContractBasisNote'
 import DataContext from '@/components/DataContext'
 import { useOutletContext } from 'react-router-dom'
 import { api } from '@/lib/api'
@@ -42,6 +43,7 @@ export function MethodologyPage() {
           </p>
         </div>
       </div>
+      <ContractBasisNote />
       <nav
         className="panel method-navigation"
         aria-label="Methodology sections"

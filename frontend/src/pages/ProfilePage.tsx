@@ -151,6 +151,7 @@ export function ProfilePage() {
     <div className="overview-page profile-page">
       <div className="page-heading">
         <h1>My Profile</h1>
+        <Link to="/app/security">Account security</Link>
       </div>
       {!account.checked ? (
         <p role="status">Checking account…</p>

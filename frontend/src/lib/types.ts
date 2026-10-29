@@ -113,6 +113,25 @@ export interface DiagnosticPage<T> {
   items: T[]
 }
 export interface DataHealthResponse extends DataResponse {
+  ingestion_history?: DiagnosticPage<{
+    id: number
+    recorded_at: string
+    file_name: string
+    trade_date: ISODate | null
+    status: string
+    rows_total: number
+    rows_kept: number
+    error_summary: string | null
+  }> | null
+  volume_mismatches?: DiagnosticPage<{
+    attempt_id: number
+    symbol: string
+    trade_date: ISODate
+    expiry_date: ISODate
+    text_grams: string | null
+    volume_grams: number
+    reason: string
+  }> | null
   file_records_available: boolean
   recorded_file_count: number
   file_status_counts: Record<string, number>

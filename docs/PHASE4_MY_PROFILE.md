@@ -1,5 +1,9 @@
 # Phase 4: My Profile
 
+Update, 28 October 2026: new-account UTC timestamp support is now implemented;
+legacy accounts remain undated. See [current fixes and verification](BACKEND_FIXES_2026-10-28.md).
+The following report is historical evidence from 22 October.
+
 22 October 2026 (IST). Scope: own-profile display, name edit, My Research link
 and existing logout. No other account features, analytics/default/data changes,
 dependencies, PPT work, commits, pushes or deployment.

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import CrowMascot from '@/components/CrowMascot'
 import LandingHeaderNav from '@/components/LandingHeaderNav'
@@ -22,6 +22,8 @@ export interface DashboardContext {
   setCoverageSelection: Dispatch<SetStateAction<CoverageSelection>>
 }
 const links = [
+  { path: '/app/alerts', label: 'Alerts', icon: '\u25c9' },
+  { path: '/app/demo', label: 'Guided Demo', icon: '\u25b7' },
   { path: '/app', label: 'Overview', icon: '◈', end: true },
   { path: '/app/relative-value', label: 'Relative Value', icon: '⇄' },
   { path: '/app/term-structure', label: 'Term Structure', icon: '⌁' },
@@ -32,6 +34,7 @@ const links = [
 ]
 export function AppLayout() {
   const account = useAccount()
+  const sidebarRef = useRef<HTMLElement>(null)
   const { pathname } = useLocation()
   const crowPose: CrowPose = pathname.endsWith('/backtest')
     ? 'running'
@@ -59,6 +62,34 @@ export function AppLayout() {
     media.addEventListener('change', closeOnDesktop)
     return () => media.removeEventListener('change', closeOnDesktop)
   }, [])
+  useEffect(() => {
+    if (!mobileOpen) return
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const trapFocus = (event: KeyboardEvent) => {
+      if (event.key !== 'Tab') return
+      const items = Array.from(
+        sidebarRef.current?.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled])',
+        ) ?? [],
+      ).filter((item) => item.getClientRects().length > 0)
+      const first = items[0]
+      const last = items[items.length - 1]
+      if (!first || !last) return
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault()
+        first.focus()
+      }
+    }
+    document.addEventListener('keydown', trapFocus)
+    return () => {
+      document.body.style.overflow = previousOverflow
+      document.removeEventListener('keydown', trapFocus)
+    }
+  }, [mobileOpen])
   const closeNavigation = () => {
     setMobileOpen(false)
     requestAnimationFrame(() =>
@@ -76,6 +107,7 @@ export function AppLayout() {
         Skip to content
       </a>
       <aside
+        ref={sidebarRef}
         className={`sidebar ${mobileOpen ? 'mobile-open' : ''}`}
         aria-label="Dashboard navigation"
       >
@@ -98,6 +130,8 @@ export function AppLayout() {
             <NavLink
               to="/app/research"
               className="nav-link"
+              aria-label="My Research"
+              title={collapsed ? 'My Research' : undefined}
               onClick={() => setMobileOpen(false)}
             >
               <span className="nav-icon" aria-hidden="true">
@@ -111,7 +145,7 @@ export function AppLayout() {
               key={link.path}
               to={link.path}
               end={link.end}
-              aria-label={`${link.label}${!['Overview', 'Relative Value', 'Term Structure', 'Backtest', 'Data Health', 'Methodology', 'Data Coverage'].includes(link.label) ? ' (not implemented yet)' : ''}`}
+              aria-label={`${link.label}${!['Overview', 'Relative Value', 'Term Structure', 'Backtest', 'Data Health', 'Methodology', 'Data Coverage', 'Guided Demo', 'Alerts'].includes(link.label) ? ' (not implemented yet)' : ''}`}
               title={collapsed ? link.label : undefined}
               onClick={() => setMobileOpen(false)}
               className={({ isActive }) =>
@@ -130,6 +164,8 @@ export function AppLayout() {
                 'Data Health',
                 'Methodology',
                 'Data Coverage',
+                'Guided Demo',
+                'Alerts',
               ].includes(link.label) && (
                 <span className="nav-pending" aria-label="Not implemented">
                   Soon

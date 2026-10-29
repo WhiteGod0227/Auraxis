@@ -101,7 +101,24 @@ for (let i = 0; i < manifest.files.length; i += 3) {
         name === 'meta' ? await offline.meta() : await offline[name](parameters)
       assert.equal(live.source, 'API')
       assert.equal(saved.source, 'Offline snapshot')
-      assert.deepEqual(saved.data, live.data)
+      const comparison = { ...live.data }
+      // Legacy exports lack the two optional diagnostic pages. They must remain
+      // unavailable/empty on a legacy database; do not mask new evidence or values.
+      if (name === 'dataHealth') {
+        for (const key of ['ingestion_history', 'volume_mismatches']) {
+          if (
+            !Object.hasOwn(saved.data, key) &&
+            Object.hasOwn(comparison, key)
+          ) {
+            if (comparison[key] !== null) {
+              assert.equal(comparison[key].available, false)
+              assert.equal(comparison[key].total_count, 0)
+            }
+            delete comparison[key]
+          }
+        }
+      }
+      assert.deepEqual(saved.data, comparison)
       if (name === 'spreads') {
         for (const series of live.data.series) {
           assert.ok(series.latest.calculation)
@@ -113,7 +130,7 @@ for (let i = 0; i < manifest.files.length; i += 3) {
               counterpart: { loading: false, retry() {} },
             }),
           )
-          assert.match(html, /Backend-recorded inputs/)
+          assert.match(html, /Inputs for /)
           assert.doesNotMatch(html, /Unavailable%/)
         }
       }

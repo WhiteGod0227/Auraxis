@@ -31,7 +31,7 @@ export function LoginPage() {
       const password = String(values.get('password') ?? '')
       if (signup)
         await auth.signup(String(values.get('name') ?? ''), email, password)
-      else await auth.login(email, password)
+      else await auth.login(email, password, String(values.get('otp') ?? ''))
       form.reset()
       navigate(safeReturn(params.get('returnTo')), { replace: true })
     } catch (error) {
@@ -129,6 +129,18 @@ export function LoginPage() {
                   disabled={busy}
                 />
               </label>
+              {!back && (
+                <label className="auth-field">
+                  Authenticator or recovery code (if enabled)
+                  <input
+                    className="input"
+                    name="otp"
+                    autoComplete="one-time-code"
+                    maxLength={128}
+                    disabled={busy}
+                  />
+                </label>
+              )}
               <button className="btn" type="submit" disabled={busy}>
                 {busy ? 'Please wait…' : back ? 'Create account' : 'Log in'}
               </button>
@@ -158,6 +170,9 @@ export function LoginPage() {
           ))}
         </div>
       </div>
+      <Link className="auth-demo-link" to="/app/recover">
+        Forgot password? Use a saved recovery code
+      </Link>
       <Link className="auth-demo-link" to="/app">
         Explore the demo without signing in <span aria-hidden="true">→</span>
       </Link>

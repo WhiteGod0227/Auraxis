@@ -296,11 +296,45 @@ HTTP (does not require stopping the existing backend):
 # My Profile
 
 `GET /api/auth/profile` returns the authenticated user's public account fields
-and `created_at: null` (creation dates were not stored). `PATCH /api/auth/profile`
+and `created_at` (UTC for new signups; null for legacy accounts whose dates were
+not stored). `PATCH /api/auth/profile`
 accepts only `{"name":"Updated name"}`; it requires the existing cookie session
 and an allowed Origin. Names are trimmed, 1–100 Unicode characters, without
-control characters. No schema migration or creation-date backfill occurs.
+control characters. Signup creates a separate private `account_metadata` table;
+legacy user rows are not altered or backfilled. Profile reads do not create it.
 Sessions and workspaces remain valid. Responses/errors are private/no-store.
 See [Phase 4 API/privacy and verification report](../docs/PHASE4_MY_PROFILE.md).
 The existing `scripts/verify_workspaces.py` additionally verifies real HTTP
 login → profile → name update → session refresh → logout with disposable stores.
+
+## Import diagnostics added 28 October 2026
+
+The loader retains `data_health` as the latest status per filename and keeps
+`bhav` idempotent. Future imports also append `ingestion_attempts` and structured
+`volume_mismatches` in the same transaction as the imported rows. A failed
+transaction cannot leave a successful audit entry or partial market rows.
+History starts with this loader version; legacy attempts/warnings are not
+invented or backfilled. Reimports are separate attempts, not additional bhav rows.
+Audit tables grow with imports; retain private backups and plan explicit retention
+before sustained operation. No audit history is automatically deleted.
+
+`GET /api/data-health` adds optional `ingestion_history` and `volume_mismatches`
+pages, bounded by the existing `diagnostic_limit` (maximum 100). Public errors
+are fixed safe summaries; free-form notes and malformed raw volume text are
+withheld. Old databases return unavailable pages without schema writes. Old
+offline snapshots may omit these fields and remain valid; regenerate authorized
+exports locally to include new evidence. Existing snapshot payloads were not changed.
+
+Refresh authorized local files with the existing command:
+
+```powershell
+Set-Location 'C:\Desktop\Auraxis\backend'
+.\.venv\Scripts\python.exe -m app.data.loader --dir data_cache/raw_csv
+```
+
+An exact byte-identical browser copy such as `BhavCopyDateWise_01102026 (1).csv`
+is explicitly skipped only when its canonical file exists. A differing copy is
+still rejected; no files are renamed, overwritten or deleted. A previously
+recorded rejection remains honest history. Do not use this command merely to
+erase a historical diagnostic, and do not replace an authoritative CSV with an
+unverified different copy.

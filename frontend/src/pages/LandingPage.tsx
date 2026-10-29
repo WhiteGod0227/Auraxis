@@ -124,8 +124,8 @@ export function LandingPage() {
               <Link className="landing-cta" to="/app">
                 Open Dashboard <span aria-hidden="true">&rarr;</span>
               </Link>
-              <Link className="landing-secondary" to="/app/methodology">
-                See Methodology
+              <Link className="landing-secondary" to="/app/demo">
+                Take the 3-minute tour
               </Link>
             </div>
 

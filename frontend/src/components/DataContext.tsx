@@ -1,8 +1,10 @@
 import type { ReactNode } from 'react'
 import type { Source } from '@/lib/types'
 import SourceBadge from './SourceBadge'
+import { formatDate } from '@/lib/format'
 
 export default function DataContext({
+  date,
   source,
   experimental,
   children,
@@ -14,6 +16,7 @@ export default function DataContext({
 }) {
   return (
     <div className="research-context">
+      <span className="data-asof">As of {formatDate(date ?? null)}</span>
       <SourceBadge source={source} />
       {experimental && (
         <strong className="experimental-notice">

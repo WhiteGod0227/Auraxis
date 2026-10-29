@@ -1,0 +1,132 @@
+.alerts-page {
+  padding: 32px;
+  max-width: 1240px;
+  margin: auto;
+}
+.alerts-page > .context-note {
+  margin: 16px 0 24px;
+  line-height: 1.8;
+}
+.alert-form {
+  padding: 24px;
+  margin-bottom: 28px;
+}
+.alert-controls {
+  display: grid;
+  grid-template-columns: 1.3fr 1.2fr 0.6fr 1fr;
+  gap: 16px;
+  margin: 24px 0;
+}
+.alert-controls label {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-width: 0;
+  font-size: 13px;
+}
+.alert-controls input,
+.alert-controls select {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px;
+  background: #111722;
+  border: 1px solid #ffffff26;
+  color: #e8edf5;
+  border-radius: 10px;
+  font: inherit;
+}
+.alert-controls small {
+  color: var(--muted);
+}
+.alert-form > .context-note {
+  margin-bottom: 20px;
+}
+.alert-form > [role='status'] {
+  margin-top: 12px;
+}
+.alert-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 20px;
+}
+.alert-card,
+.alert-empty {
+  padding: 24px;
+  min-width: 0;
+}
+.alert-empty {
+  margin-top: 20px;
+}
+.alert-card h3 {
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+.alert-status {
+  padding: 4px 10px;
+  border: 1px solid #ffffff26;
+  border-radius: 999px;
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.alert-status.triggered {
+  border-color: #eec77c66;
+  color: var(--gold);
+  background: #eec77c10;
+}
+.alert-status.below {
+  color: #c1dacd;
+}
+.alert-card > p {
+  margin-block: 14px;
+  line-height: 1.7;
+}
+.alert-source {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.alert-reading {
+  font-size: 28px;
+}
+.alert-reading small {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+}
+.alert-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding-top: 16px;
+  border-top: 1px solid #ffffff14;
+}
+.alert-actions a {
+  color: var(--gold);
+  font-size: 13px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+@media (max-width: 1000px) {
+  .alert-controls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 700px) {
+  .alerts-page {
+    padding: 24px 16px;
+  }
+  .alert-controls,
+  .alert-list {
+    grid-template-columns: 1fr;
+  }
+  .alert-card,
+  .alert-form {
+    padding: 18px;
+  }
+}

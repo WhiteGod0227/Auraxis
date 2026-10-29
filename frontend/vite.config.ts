@@ -4,7 +4,9 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { defineConfig } from 'vite'
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
+  // Public market exports stay local; deployment builds use an explicit allowlist.
+  publicDir: mode === 'deployment' ? false : 'public',
   // A running preview may have tabs still using the preceding build's chunks.
   // Keep those assets across local rebuilds instead of breaking lazy imports.
   build: { emptyOutDir: false },
@@ -16,4 +18,4 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
-})
+}))

@@ -7,6 +7,7 @@ import sqlite3
 import time
 import unicodedata
 from contextlib import contextmanager
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -41,6 +42,7 @@ class NameUpdate(BaseModel):
 class Credentials(BaseModel):
     email: str = Field(min_length=3, max_length=254)
     password: str = Field(min_length=1, max_length=128)
+    otp: str = Field(default="", max_length=128)
 
     @field_validator("email")
     @classmethod
@@ -78,8 +80,8 @@ class Account(BaseModel):
 
 
 class ProfileUser(User):
-    # The current auth schema never recorded account creation. Do not fabricate it.
-    created_at: None = None
+    # Legacy accounts have no creation evidence; never backfill a guessed date.
+    created_at: datetime | None = None
 
 
 class Profile(BaseModel):
@@ -117,6 +119,13 @@ def database(settings):
     from sqlalchemy.engine import make_url
 
     market = make_url(settings.database_url).database
+    workspace = (BACKEND_DIR / settings.workspace_database_path).resolve()
+    frontend = BACKEND_DIR.parent / "frontend"
+    public_roots = [frontend / name for name in ("public", "dist", "dist-deploy")]
+    if path.resolve() == workspace or any(
+        path.resolve().is_relative_to(root.resolve()) for root in public_roots
+    ):
+        raise HTTPException(503, "Private account storage is not configured safely.")
     if market and market != ":memory:":
         market_path = BACKEND_DIR / market
         if path.resolve() == market_path.resolve():
@@ -209,11 +218,20 @@ def signup(
     hashed = password_hash(body.password)
     try:
         with database(settings) as db:
+            db.execute(
+                "CREATE TABLE IF NOT EXISTS account_metadata ("
+                "user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, "
+                "created_at TEXT NOT NULL)"
+            )
             cursor = db.execute(
                 "INSERT INTO users(name,email,password_hash) VALUES (?,?,?)",
                 (body.name, body.email, hashed),
             )
             user_id = cursor.lastrowid
+            db.execute(
+                "INSERT INTO account_metadata VALUES (?,?)",
+                (user_id, datetime.now(UTC).isoformat()),
+            )
             start_session(db, request, response, user_id, settings)
     except sqlite3.IntegrityError:
         raise HTTPException(
@@ -238,6 +256,17 @@ def login(
     if not user or not valid:
         raise HTTPException(401, "Email or password is incorrect.")
     with database(settings) as db:
+        from app.api.security import verify_second_factor
+
+        db.execute("BEGIN IMMEDIATE")
+        # Recheck inside the transaction so a concurrent password reset cannot
+        # be followed by a login with the previous password.
+        current = db.execute(
+            "SELECT password_hash FROM users WHERE id=?", (user["id"],)
+        ).fetchone()
+        if not current or current[0] != stored:
+            raise HTTPException(401, "Credentials changed. Please retry.")
+        verify_second_factor(db, user["id"], body.otp.strip())
         db.execute("DELETE FROM attempts WHERE key=?", (key,))
         start_session(db, request, response, user["id"], settings)
     return {"user": {key: user[key] for key in ("id", "name", "email")}}
@@ -258,14 +287,28 @@ def current_user(request: Request, settings: Settings = Depends(safe_request)):
     return dict(user)
 
 
+def creation_timestamp(user_id, settings):
+    with database(settings) as db:
+        if not db.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='account_metadata'"
+        ).fetchone():
+            return None
+        row = db.execute(
+            "SELECT created_at FROM account_metadata WHERE user_id=?", (user_id,)
+        ).fetchone()
+        return row[0] if row else None
+
+
 @router.get("/me", response_model=Account)
 def me(user: dict = Depends(current_user)):
     return {"user": user}
 
 
 @router.get("/profile", response_model=Profile)
-def profile(user: dict = Depends(current_user)):
-    return {"user": {**user, "created_at": None}}
+def profile(
+    user: dict = Depends(current_user), settings: Settings = Depends(get_settings)
+):
+    return {"user": {**user, "created_at": creation_timestamp(user["id"], settings)}}
 
 
 @router.patch("/profile", response_model=Profile)
@@ -280,7 +323,13 @@ def update_profile(
         )
         if changed.rowcount != 1:
             raise HTTPException(401, "Session expired. Please log in again.")
-    return {"user": {**user, "name": body.name, "created_at": None}}
+    return {
+        "user": {
+            **user,
+            "name": body.name,
+            "created_at": creation_timestamp(user["id"], settings),
+        }
+    }
 
 
 @router.post("/logout", status_code=204)

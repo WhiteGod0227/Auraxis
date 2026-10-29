@@ -49,6 +49,49 @@ const manifest = JSON.parse(
 const defaultMeta = manifest.files.find((e) => e.endpoint === '/api/meta')
 const meta = JSON.parse(await readFile(new URL(defaultMeta.path, root), 'utf8'))
 const calls = []
+
+test('ingestion additions validate when present and legacy offline health stays valid', async () => {
+  const entry = manifest.files.find((e) => e.endpoint === '/api/data-health')
+  const legacy = JSON.parse(await readFile(new URL(entry.path, root), 'utf8'))
+  assert.doesNotThrow(() => parseDataHealth(legacy))
+  const enhanced = structuredClone(legacy)
+  enhanced.ingestion_history = {
+    available: true,
+    unavailable_reason: null,
+    definition: 'Instrumented only',
+    total_count: 1,
+    returned_count: 1,
+    truncated: false,
+    items: [
+      {
+        id: 1,
+        recorded_at: '2026-10-28T00:00:00+00:00',
+        file_name: 'BhavCopyDateWise_01102026.csv',
+        trade_date: '2026-10-01',
+        status: 'ok',
+        rows_total: 30,
+        rows_kept: 24,
+        error_summary: null,
+      },
+    ],
+  }
+  enhanced.volume_mismatches = {
+    available: true,
+    unavailable_reason: null,
+    definition: 'Per attempt',
+    total_count: 0,
+    returned_count: 0,
+    truncated: false,
+    items: [],
+  }
+  assert.doesNotThrow(() => parseDataHealth(enhanced))
+  enhanced.ingestion_history.items[0].rows_kept = Infinity
+  assert.throws(() => parseDataHealth(enhanced), /schema/)
+  enhanced.ingestion_history = null
+  assert.doesNotThrow(() => parseDataHealth(enhanced))
+  enhanced.volume_mismatches.items = [{ symbol: 'GOLDM' }]
+  assert.throws(() => parseDataHealth(enhanced), /schema/)
+})
 function offlineFetcher(transform) {
   return async (url, options) => {
     calls.push(String(url))

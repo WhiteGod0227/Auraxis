@@ -70,10 +70,8 @@ test('research context keeps historical date, online/offline source and experime
     source: 'API',
     experimental: false,
   })
-  assert.doesNotMatch(
-    online,
-    /Historical|01 Oct 2026|Data details|Connected service/,
-  )
+  assert.match(online, /As of 01 Oct 2026/)
+  assert.doesNotMatch(online, /Historical|Data details|Connected service/)
   assert.doesNotMatch(online, /source-badge|Data source: API/)
   assert.doesNotMatch(online, /Experimental purity adjustment/)
   const offline = render({
@@ -82,6 +80,7 @@ test('research context keeps historical date, online/offline source and experime
     experimental: true,
   })
   assert.match(offline, /Offline snapshot/)
+  assert.match(offline, /As of Unavailable/)
   assert.match(offline, /Experimental purity adjustment/)
   assert.match(offline, /unverified/)
 })
@@ -178,6 +177,12 @@ test('save action stays compact and selection policy is disclosed without exposi
 for (const [path, heading] of [
   ['/', /Same gold/],
   ['/app', /Overview/],
+  ['/app/alerts', /Create a research alert/],
+  ['/app/security', /Account security/],
+  ['/app/recover', /Recover account/],
+  ['/app/demo', /A price gap is a question/],
+  ['/app/demo?step=4', /Keep the research/],
+  ['/app/demo?step=999', /What is the observed gap/],
   ['/app/relative-value', /Explain this comparison/],
   ['/app/term-structure', /Term Structure/],
   ['/app/backtest', /Backtest/],

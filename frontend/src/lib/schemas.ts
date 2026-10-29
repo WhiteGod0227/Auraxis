@@ -187,8 +187,44 @@ export const parseMeta = (v: unknown) => parse<MetaResponse>(meta, v)
 export const parseOverview = (v: unknown) =>
   parse<OverviewResponse>(overview, v)
 export const parsePrices = (v: unknown) => parse<PricesResponse>(prices, v)
-export const parseDataHealth = (v: unknown) =>
-  parse<DataHealthResponse>(dataHealth, v)
+export const parseDataHealth = (v: unknown) => {
+  const result = parse<DataHealthResponse>(dataHealth, v)
+  const additions: Record<string, Shape> = {
+    ingestion_history: page(
+      object({
+        id: num,
+        recorded_at: str,
+        file_name: str,
+        trade_date: nullable(isoDate),
+        status: str,
+        rows_total: num,
+        rows_kept: num,
+        error_summary: nullable(str),
+      }),
+    ),
+    volume_mismatches: page(
+      object({
+        attempt_id: num,
+        symbol: str,
+        trade_date: isoDate,
+        expiry_date: isoDate,
+        text_grams: nullable(str),
+        volume_grams: num,
+        reason: str,
+      }),
+    ),
+  }
+  for (const [key, shape] of Object.entries(additions)) {
+    if (
+      recordObject(v) &&
+      Object.hasOwn(v, key) &&
+      v[key] !== null &&
+      !shape(v[key])
+    )
+      throw new Error('Response does not match the expected ingestion schema.')
+  }
+  return result
+}
 
 const count: Shape = (v) => num(v) && Number.isSafeInteger(v) && Number(v) >= 0
 const coverageCounts = {

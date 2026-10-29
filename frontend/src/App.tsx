@@ -1,5 +1,7 @@
 import { Route, Routes } from 'react-router-dom'
 
+import { DemoPage } from '@/pages/DemoPage'
+import { SecurityPage, RecoverPage } from '@/pages/SecurityPage'
 import { AppLayout } from '@/layouts/AppLayout'
 import { AlertsPage } from '@/pages/AlertsPage'
 import { BacktestPage } from '@/pages/BacktestPage'
@@ -23,6 +25,9 @@ export default function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/app" element={<AppLayout />}>
         <Route index element={<DashboardOverviewPage />} />
+        <Route path="demo" element={<DemoPage />} />
+        <Route path="security" element={<SecurityPage />} />
+        <Route path="recover" element={<RecoverPage />} />
         <Route
           path="relative-value"
           element={
