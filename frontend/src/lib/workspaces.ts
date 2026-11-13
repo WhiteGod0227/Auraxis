@@ -89,6 +89,8 @@ export function safeReturn(value: string | null) {
       '/app/security',
       '/app/profile',
       '/app/research',
+      '/app/import',
+      '/app',
       ...Object.values(researchRoutes),
     ]
     return url.origin === 'https://auraxis.invalid' &&

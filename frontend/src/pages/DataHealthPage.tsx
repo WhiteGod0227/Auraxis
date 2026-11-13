@@ -1,4 +1,3 @@
-import DataContext from '@/components/DataContext'
 import { useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { api } from '@/lib/api'
@@ -8,7 +7,10 @@ import {
   FileDiagnostics,
   ObservationDiagnostics,
 } from '@/components/HealthDiagnostics'
-import { formatDate, number, humanize } from '@/lib/format'
+import { HowItWorks, Skeleton, Stat } from '@/components/ui'
+import { Ring } from '@/components/LuxCharts'
+import { PALETTE } from '@/lib/chartTheme'
+import { grams, longDate, num } from '@/lib/insight'
 import type { DashboardContext } from '@/layouts/AppLayout'
 const loadHealth = (signal: AbortSignal) => api.dataHealth({}, signal)
 export function DataHealthPage() {
@@ -29,258 +31,187 @@ export function DataHealthPage() {
         ]),
       ].sort()
     : []
+  const sessions = data?.no_trade_observations.available
+    ? data.database_session_count
+    : null
+  const rows = data?.no_trade_observations.available
+    ? data.database_observation_count
+    : null
+  const problems =
+    (counts?.rejected ?? 0) + (data?.date_mismatch_files.total_count ?? 0)
   return (
-    <div className="overview-page data-health-page">
-      <div className="page-heading">
-        <div>
-          <p className="eyebrow">INGESTION RECORDS & OBSERVATION QUALITY</p>
-          <h1>Data Health</h1>
-          <p className="page-description">
-            Review imported data and observation quality.
-          </p>
-        </div>
-      </div>
-      {meta.error && (
-        <p className="error-notice">
-          Data context unavailable.{' '}
-          <button className="button" onClick={meta.retry}>
-            Retry
-          </button>
-        </p>
-      )}
-      <details className="data-details">
-        <summary>Dataset details</summary>
-        {historical ? (
-          <p>
-            {formatDate(historical.first)} to {formatDate(historical.last)} ·{' '}
-            {historical.sessions} sessions. Purity assumptions:{' '}
-            {historical.purity}.
-          </p>
-        ) : (
-          <p>Dataset details unavailable.</p>
-        )}
-      </details>
-      {health.loading && (
-        <div className="panel">
-          <CrowLoader label="Checking data health…" />
+    <div className="cmp-page data-health-page">
+      {health.loading && !data && (
+        <div className="ui-stack">
+          <Skeleton height={180} />
+          <Skeleton height={220} />
         </div>
       )}
       {health.error && (
         <div className="error-notice" role="alert">
-          <p>Data Health unavailable: {health.error}</p>
+          <span>Data health unavailable: {health.error}</span>
           <button className="button" onClick={health.retry}>
-            Retry Data Health
+            Retry
           </button>
         </div>
       )}
-      {data && response && counts && (
+      {data && counts && (
         <>
-          <section className="panel dh-summary">
-            <div className="section-heading">
-              <h2>Data summary</h2>
-              <DataContext date={data.data_as_of} source={response.source} />
-            </div>
-            {data.message && <p>{data.message}</p>}
-            <div className="rv-readings">
-              {[
-                [
-                  'Successful processing records',
-                  counts.successful,
-                  'Recorded status ok; successful parsing only.',
-                ],
-                [
-                  'Rejected processing records',
-                  counts.rejected,
-                  'Recorded error or date_mismatch status; no inferred cause.',
-                ],
-                [
-                  'Trading sessions',
-                  data.no_trade_observations.available
-                    ? data.database_session_count
-                    : null,
-                  'Distinct stored observation dates.',
-                ],
-                [
-                  'Contract observations',
-                  data.no_trade_observations.available
-                    ? data.database_observation_count
-                    : null,
-                  'Stored symbol/expiry/trade-date rows.',
-                ],
-                [
-                  'Zero-volume observations',
-                  counts.zeroVolume,
-                  'volume_lots equals zero; counted independently.',
-                ],
-                [
-                  'No-trade observations',
-                  counts.noTrade,
-                  'has_trade=False; may overlap zero volume.',
-                ],
-                [
-                  'Thin-volume observations',
-                  counts.thinVolume,
-                  'volume_grams strictly below the applied threshold, including zero volume.',
-                ],
-              ].map(([label, value, definition]) => (
-                <div className="rv-reading" key={String(label)}>
-                  <span>{String(label)}</span>
-                  <strong>
-                    {typeof value === 'number'
-                      ? number.format(value)
-                      : 'Unavailable'}
-                  </strong>
-                  <span className="sr-only">{String(definition)}</span>
-                </div>
-              ))}
-            </div>
-            <details>
-              <summary>Count definitions</summary>
-              <p>
-                Processing records are keyed by filename; they are not a history
-                of import attempts. Zero-volume, no-trade and thin-volume counts
-                can overlap and must not be added together.
-              </p>
-              <p>
-                Thin volume means below {number.format(data.min_volume_grams)}{' '}
-                g, including zero volume. Missing diagnostic counts remain
-                unavailable, not zero.
-              </p>
-            </details>
-            <details>
-              <summary>Import status breakdown</summary>
-              <div className="dh-status-counts">
-                {Object.entries(data.file_status_counts).map(
-                  ([status, count]) => (
-                    <span className="badge" key={status}>
-                      {humanize(status)}: {count}
-                    </span>
-                  ),
-                )}
+          <section className="ui-card cmp-summary" aria-label="Data summary">
+            <div className="cmp-summary-head">
+              <div>
+                <h2>What's loaded</h2>
+                <p className="ui-muted-note">
+                  {historical
+                    ? `${longDate(historical.first)} – ${longDate(historical.last)}`
+                    : (data.message ?? 'No data yet')}
+                </p>
               </div>
-            </details>
-            {!data.file_records_available && (
-              <p className="dh-unavailable">
-                Recorded processing statuses unavailable.
-              </p>
-            )}
-            {(data.file_status_counts.error ?? 0) > 0 && (
-              <p className="dh-unavailable">
-                Recorded error statuses: {data.file_status_counts.error}.
-                Detailed causes were not retained.
-              </p>
-            )}
-          </section>
-          <FileDiagnostics
-            title="Rejected processing records"
-            page={data.rejected_files}
-          />
-          <FileDiagnostics
-            title="Date mismatch records"
-            page={data.date_mismatch_files}
-          />
-          <FileDiagnostics
-            title="All recorded processing results"
-            page={data.recorded_files}
-          />
-          <section className="panel dh-checks">
-            <p>Unavailable checks are not zero issues.</p>
-            <details>
-              <summary>Diagnostic availability</summary>
-              <div
-                className="table-scroll dh-table-scroll"
-                tabIndex={0}
-                role="region"
-                aria-label="Diagnostic availability"
+              <span
+                className={`ui-chip ${problems ? 'tone-high' : 'tone-normal'}`}
               >
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Check</th>
-                      <th>Availability</th>
-                      <th>Reason</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {Object.entries(data.unavailable_diagnostics).map(
-                      ([name, diagnostic]) => (
-                        <tr key={name}>
-                          <td>{humanize(name)}</td>
-                          <td>
-                            {diagnostic.available
-                              ? 'Available (no issue count supplied)'
-                              : 'Unavailable'}
-                          </td>
-                          <td className="rv-reasons">{diagnostic.reason}</td>
-                        </tr>
-                      ),
-                    )}
-                  </tbody>
-                </table>
+                <span className="ui-chip-dot" aria-hidden="true" />
+                {problems
+                  ? `${problems} file${problems === 1 ? '' : 's'} need attention`
+                  : 'All files imported'}
+              </span>
+            </div>
+            <div className="dh-lux">
+              <div className="dh-lux-stats">
+                <Stat
+                  label="Trading sessions"
+                  value={num(sessions)}
+                  hint={`${num(counts.successful)} files imported`}
+                />
+                <Stat
+                  label="Contract rows"
+                  value={num(rows)}
+                  hint="one per contract per day"
+                />
               </div>
-            </details>
+              <div className="dh-lux-rings">
+                <Ring
+                  color={PALETTE.jade}
+                  value={rows ? 1 - (counts.noTrade ?? 0) / rows : null}
+                  label={
+                    <>
+                      Rows with trades
+                      <br />
+                      <span className="ui-muted-note">
+                        {num(counts.noTrade)} without
+                      </span>
+                    </>
+                  }
+                />
+                <Ring
+                  color={PALETTE.slate}
+                  value={rows ? 1 - (counts.thinVolume ?? 0) / rows : null}
+                  label={
+                    <>
+                      Liquid rows
+                      <br />
+                      <span className="ui-muted-note">
+                        ≥ {grams(data.min_volume_grams)} traded
+                      </span>
+                    </>
+                  }
+                />
+                <Ring
+                  color={PALETTE.garnet}
+                  value={
+                    (counts.successful ?? 0) + (counts.rejected ?? 0)
+                      ? (counts.successful ?? 0) /
+                        ((counts.successful ?? 0) + (counts.rejected ?? 0))
+                      : null
+                  }
+                  label={
+                    <>
+                      Files imported
+                      <br />
+                      <span className="ui-muted-note">
+                        {num(counts.rejected)} rejected
+                      </span>
+                    </>
+                  }
+                />
+              </div>
+            </div>
           </section>
-          <section className="panel dh-quality">
-            <h2>Global observation counts by product</h2>
-            <p>Counts cover all stored observations. Categories may overlap.</p>
-            <div
-              className="table-scroll dh-table-scroll"
-              tabIndex={0}
-              role="region"
-              aria-label="By-product quality counts"
-            >
-              <table>
+
+          {problems > 0 && (
+            <div className="ui-stack">
+              <FileDiagnostics
+                title="Rejected files"
+                page={data.rejected_files}
+              />
+              <FileDiagnostics
+                title="Files whose dates don't match their name"
+                page={data.date_mismatch_files}
+              />
+            </div>
+          )}
+
+          <section className="ui-card" aria-labelledby="dh-products">
+            <div className="ui-card-head">
+              <h2 id="dh-products">By product</h2>
+              <p>Categories can overlap</p>
+            </div>
+            <div className="ui-table-scroll">
+              <table className="ui-table">
                 <thead>
                   <tr>
                     <th>Product</th>
-                    <th>Zero volume</th>
-                    <th>No recorded trade</th>
-                    <th>Thin volume</th>
+                    <th className="num">Zero volume</th>
+                    <th className="num">No trades</th>
+                    <th className="num">Thin volume</th>
                   </tr>
                 </thead>
                 <tbody>
                   {products.map((p) => (
                     <tr key={p}>
                       <td>{p}</td>
-                      <td>
-                        {data.no_trade_observations.available
-                          ? (data.zero_volume_counts_by_product[p] ??
-                            'Unavailable')
-                          : 'Unavailable'}
+                      <td className="num">
+                        {num(data.zero_volume_counts_by_product[p])}
                       </td>
-                      <td>
-                        {data.no_trade_observations.available
-                          ? (data.no_trade_counts_by_product[p] ??
-                            'Unavailable')
-                          : 'Unavailable'}
+                      <td className="num">
+                        {num(data.no_trade_counts_by_product[p])}
                       </td>
-                      <td>
-                        {data.thin_volume_observations.available
-                          ? (data.thin_volume_counts_by_product[p] ??
-                            'Unavailable')
-                          : 'Unavailable'}
+                      <td className="num">
+                        {num(data.thin_volume_counts_by_product[p])}
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-            <div className="rv-controls dh-filters">
-              <label>
-                Filter returned observations
+          </section>
+
+          <HowItWorks title="Detailed records">
+            <p>
+              Zero-volume, no-trade and thin-volume counts can overlap — don't
+              add them together. Thin volume means below{' '}
+              {grams(data.min_volume_grams)}.
+            </p>
+            <FileDiagnostics
+              title="All imported files"
+              page={data.recorded_files}
+            />
+            <div className="ui-controls">
+              <label className="ui-field">
+                Product
                 <select
                   aria-label="Returned-list product"
                   value={product}
                   onChange={(e) => setProduct(e.target.value)}
                 >
-                  <option value="all">All returned products</option>
+                  <option value="all">All products</option>
                   {products.map((p) => (
                     <option key={p}>{p}</option>
                   ))}
                 </select>
               </label>
-              <label>
-                Date order
+              <label className="ui-field">
+                Order
                 <select
                   aria-label="Returned-list date order"
                   value={descending ? 'descending' : 'ascending'}
@@ -293,32 +224,27 @@ export function DataHealthPage() {
                 </select>
               </label>
             </div>
-          </section>
-          <ObservationDiagnostics
-            title="No-trade observations"
-            page={data.no_trade_observations}
-            product={product}
-            descending={descending}
-          />
-          <ObservationDiagnostics
-            title="Thin-volume observations"
-            page={data.thin_volume_observations}
-            product={product}
-            descending={descending}
-          />
-          <section className="panel dh-assumptions">
-            <details>
-              <summary>Import and normalization details</summary>
-              <ul>
-                {data.assumptions.map((assumption) => (
-                  <li key={assumption}>{assumption}</li>
-                ))}
-              </ul>
-            </details>
-          </section>
+            <ObservationDiagnostics
+              title="Rows without trades"
+              page={data.no_trade_observations}
+              product={product}
+              descending={descending}
+            />
+            <ObservationDiagnostics
+              title="Thin-volume rows"
+              page={data.thin_volume_observations}
+              product={product}
+              descending={descending}
+            />
+            <h3>Import rules</h3>
+            <ul>
+              {data.assumptions.map((assumption) => (
+                <li key={assumption}>{assumption}</li>
+              ))}
+            </ul>
+          </HowItWorks>
         </>
       )}
     </div>
   )
 }
-import CrowLoader from '@/components/CrowLoader'

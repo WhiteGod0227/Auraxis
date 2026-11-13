@@ -23,24 +23,16 @@ const labels: Record<string, string> = {
   expiry_buffer: 'Approaching expiry',
 }
 
-// Unknown diagnostics remain verbatim; this changes presentation only.
+export function diagnosticText(code: string) {
+  return labels[code] ?? code.replaceAll('_', ' ')
+}
+
+// Unknown diagnostics remain readable; the raw code is available on hover.
 export default function DiagnosticLabel({ code }: { code: string }) {
-  const [expanded, setExpanded] = useState(false)
   if (!code) return null
   return (
-    <span className="diagnostic-label">
-      {labels[code] ?? code}{' '}
-      <button
-        className="diagnostic-toggle"
-        type="button"
-        aria-expanded={expanded}
-        aria-label={`Technical code for ${labels[code] ?? code}`}
-        onClick={() => setExpanded((value) => !value)}
-      >
-        {expanded ? 'Hide details' : 'Details'}
-      </button>
-      {expanded && <code> {code}</code>}
+    <span className="diagnostic-label" title={code}>
+      {diagnosticText(code)}
     </span>
   )
 }
-import { useState } from 'react'

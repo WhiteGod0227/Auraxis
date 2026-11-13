@@ -12,6 +12,7 @@ import {
   recordObject,
 } from './schemas'
 import type {
+  SpreadsSummaryResponse,
   SpreadParameters,
   BacktestParameters,
   CurveParameters,
@@ -62,6 +63,7 @@ const defaults: Record<string, Record<string, ParameterValue>> = {
     min_volume_grams: 2000,
     min_oi_grams: 0,
   },
+  '/api/spreads/summary': { window: 10, history: 30 },
   '/api/curve': { product: '', date: null, purity: false },
   '/api/rolldown': {
     product: '',
@@ -272,7 +274,7 @@ export function createApiClient(options: Options = {}) {
   const snapshotBase =
     options.snapshotBaseUrl ?? `${import.meta.env?.BASE_URL ?? '/'}snapshots/`
   const fetcher = options.fetcher ?? fetch
-  const timeoutMs = options.timeoutMs ?? 8000
+  const timeoutMs = options.timeoutMs ?? 25000
   async function download(
     url: string,
     signal?: AbortSignal,
@@ -320,7 +322,7 @@ export function createApiClient(options: Options = {}) {
       if (e instanceof ClientError && e.kind === 'manifest') throw e
       throw new ClientError(
         'manifest',
-        'Offline manifest is unavailable or corrupt. Serve the frontend and regenerate snapshots.',
+        "Can't reach the Auraxis data server. Make sure the backend is running, then retry.",
       )
     }
     const overrides =
@@ -569,6 +571,8 @@ export function createApiClient(options: Options = {}) {
         signal,
       ),
     meta: (signal?: AbortSignal) => request('/api/meta', {}, parseMeta, signal),
+    spreadsSummary: (signal?: AbortSignal) =>
+      request('/api/spreads/summary', {}, parseSpreadsSummary, signal),
     overview: (parameters: OverviewParameters = {}, signal?: AbortSignal) =>
       request('/api/overview', parameters, parseOverview, signal),
     prices: (parameters: PricesParameters = {}, signal?: AbortSignal) =>
@@ -596,3 +600,21 @@ export function createApiClient(options: Options = {}) {
   }
 }
 export const api = createApiClient()
+
+function parseSpreadsSummary(value: unknown): SpreadsSummaryResponse {
+  const data = value as SpreadsSummaryResponse
+  if (
+    !data ||
+    typeof data !== 'object' ||
+    !Array.isArray(data.pairs) ||
+    !data.pairs.every(
+      (item) =>
+        item &&
+        typeof item.pair === 'string' &&
+        typeof item.expiry === 'string' &&
+        Array.isArray(item.history),
+    )
+  )
+    throw new Error('Malformed spreads summary.')
+  return data
+}

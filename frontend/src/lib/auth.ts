@@ -24,6 +24,8 @@ export class AuthError extends Error {
   constructor(
     message: string,
     public status?: number,
+    /** Set to 'mfa' when the server needs a second factor to finish signing in. */
+    public step?: string,
   ) {
     super(message)
     this.name = 'AuthError'
@@ -73,6 +75,7 @@ async function request(
         ? value.detail
         : 'Account request failed. Please retry.',
       response.status,
+      response.headers.get('X-Auth-Step') ?? undefined,
     )
   const user = value?.user
   if (
@@ -119,6 +122,8 @@ export const auth = {
     request('signup', 'POST', { name, email, password }),
   login: (email: string, password: string, otp = '') =>
     request('login', 'POST', { email, password, ...(otp ? { otp } : {}) }),
+  google: (credential: string, otp = '') =>
+    request('google', 'POST', { credential, ...(otp ? { otp } : {}) }),
   me: () => request('me'),
   profile: async () => {
     const epoch = session.getSnapshot().epoch
@@ -139,4 +144,25 @@ export const auth = {
   updateName: async (name: string) =>
     (await request('profile', 'PATCH', { name })) as ProfileUser,
   logout: () => request('logout', 'POST'),
+}
+
+let providers: Promise<{ googleClientId: string | null }> | undefined
+/** Sign-in providers configured on the backend (cached per page load). */
+export function authProviders() {
+  providers ??= fetch(
+    `${env.apiBaseUrl.replace(/\/$/, '')}/api/auth/providers`,
+    { cache: 'no-store', signal: AbortSignal.timeout(8000) },
+  )
+    .then((response) => (response.ok ? response.json() : null))
+    .then((value) => ({
+      googleClientId:
+        typeof value?.google_client_id === 'string'
+          ? value.google_client_id
+          : null,
+    }))
+    .catch(() => {
+      providers = undefined
+      return { googleClientId: null }
+    })
+  return providers
 }

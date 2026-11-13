@@ -1,4 +1,4 @@
-import '@/styles/crow-loader.css'
+import Crow from './Crow'
 
 export default function CrowLoader({
   label = 'Loading...',
@@ -6,8 +6,8 @@ export default function CrowLoader({
   label?: string
 }) {
   return (
-    <div className="inline-loading-state" role="status" aria-live="polite">
-      <span className="inline-loading-spinner" aria-hidden="true" />
+    <div className="crow-loading" role="status" aria-live="polite">
+      <Crow size={84} mood="pecking" />
       <span>{label}</span>
     </div>
   )

@@ -1,6 +1,11 @@
 import { selectContractExpiry } from './termStructure'
 import type { CompletedTrade, BacktestOrderEvent } from './types'
-import type { BacktestParameters, BacktestReport, CostTolerance } from './types'
+import type {
+  BacktestParameters,
+  BacktestReport,
+  CostSensitivityPoint,
+  CostTolerance,
+} from './types'
 export const backtestPairs = [
   'GOLDTEN-GOLDPETAL',
   'GOLDTEN-GOLDGUINEA',
@@ -152,4 +157,41 @@ export function exitSignalZ(
     Number.isFinite(matches[0].signal_z)
     ? matches[0].signal_z
     : null
+}
+
+/** Plain-English version of the cost tolerance, for the page itself. */
+export function costToleranceSentence(t: CostTolerance, currentBps: number) {
+  if (t.reason === 'no_completed_trades')
+    return 'Needs at least one completed trade.'
+  if (t.reason === 'nonpositive_gross_pnl')
+    return 'These trades lost money even with zero costs — costs are not the problem.'
+  if (t.reason) return costToleranceMessage(t)
+  if (t.range_capped)
+    return 'Still profitable at 50 bps per leg — far above realistic costs.'
+  if (t.highest_profitable_tested_bps === null)
+    return 'No tested cost level was profitable.'
+  const bps = t.highest_profitable_tested_bps
+  return bps >= currentBps
+    ? `Profitable up to ${bps} bps per leg per side — this run assumes ${currentBps}.`
+    : `Only profitable up to ${bps} bps per leg per side, but this run assumes ${currentBps} — costs turn it into a loss.`
+}
+
+/** Cost level (bps) where net profit crosses zero, by linear interpolation. */
+export function breakEvenBps(points: CostSensitivityPoint[]) {
+  const rows = points.filter(
+    (p): p is CostSensitivityPoint & { net_pnl: number } =>
+      typeof p.net_pnl === 'number',
+  )
+  for (let i = 1; i < rows.length; i++) {
+    const a = rows[i - 1]
+    const b = rows[i]
+    if (a.net_pnl >= 0 && b.net_pnl < 0) {
+      const t = a.net_pnl / (a.net_pnl - b.net_pnl)
+      return (
+        a.cost_bps_per_leg_per_side +
+        t * (b.cost_bps_per_leg_per_side - a.cost_bps_per_leg_per_side)
+      )
+    }
+  }
+  return null
 }

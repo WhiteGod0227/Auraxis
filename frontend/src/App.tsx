@@ -4,10 +4,12 @@ import { DemoPage } from '@/pages/DemoPage'
 import { SecurityPage, RecoverPage } from '@/pages/SecurityPage'
 import { AppLayout } from '@/layouts/AppLayout'
 import { AlertsPage } from '@/pages/AlertsPage'
+import { ReportPage } from '@/pages/ReportPage'
 import { BacktestPage } from '@/pages/BacktestPage'
 import { CalendarPage } from '@/pages/CalendarPage'
 import { DashboardOverviewPage } from '@/pages/DashboardOverviewPage'
 import { DataHealthPage } from '@/pages/DataHealthPage'
+import { DataImportPage } from '@/pages/DataImportPage'
 import { LandingPage } from '@/pages/LandingPage'
 import { LoginPage } from '@/pages/LoginPage'
 import { MethodologyPage } from '@/pages/MethodologyPage'
@@ -56,7 +58,9 @@ export default function App() {
         <Route path="profile" element={<ProfilePage />} />
         <Route path="calendar" element={<CalendarPage />} />
         <Route path="alerts" element={<AlertsPage />} />
+        <Route path="report" element={<ReportPage />} />
         <Route path="data-health" element={<DataHealthPage />} />
+        <Route path="import" element={<DataImportPage />} />
         <Route path="methodology" element={<MethodologyPage />} />
       </Route>
       <Route path="*" element={<NotFoundPage />} />

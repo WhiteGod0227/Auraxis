@@ -29,9 +29,9 @@
   width: 100%;
   min-height: 44px;
   padding: 10px;
-  background: #111722;
+  background: var(--panel-2);
   border: 1px solid #ffffff26;
-  color: #e8edf5;
+  color: var(--text-strong);
   border-radius: 10px;
   font: inherit;
 }
@@ -71,12 +71,12 @@
   white-space: nowrap;
 }
 .alert-status.triggered {
-  border-color: #eec77c66;
+  border-color: #b5b5b966;
   color: var(--gold);
-  background: #eec77c10;
+  background: #b5b5b910;
 }
 .alert-status.below {
-  color: #c1dacd;
+  color: var(--text);
 }
 .alert-card > p {
   margin-block: 14px;

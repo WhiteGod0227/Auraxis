@@ -1,0 +1,382 @@
+/* Auraxis "Refined" layer — quiet, editorial surfaces.
+   Flat charcoal panels, hairline borders, typographic hierarchy.
+   No gradients on cards, no glows, no hover lifts, no gradient text.
+   Loaded last. */
+:root {
+  --bg: #0a0a0b;
+  --panel: #121214;
+  --panel-2: #161618;
+  --line: rgb(255 255 255 / 6.5%);
+  --line-strong: rgb(255 255 255 / 11%);
+  --text: #ececee;
+  --text-2: #a9a9b0;
+  --text-3: #74747c;
+  --radius: 14px;
+  --radius-sm: 10px;
+}
+
+/* ---------- Calmer backdrop ---------- */
+.backdrop {
+  opacity: 0.35;
+}
+.scroll-progress {
+  opacity: 0.6;
+}
+
+/* ---------- Type: weight and spacing, not effects ---------- */
+h1,
+.ui-page-title h1,
+.page-heading h1,
+body .ov-welcome-text h1 {
+  background: none;
+  color: var(--text);
+  -webkit-text-fill-color: currentColor;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+.silver-text {
+  background: none;
+  color: var(--text);
+  -webkit-text-fill-color: currentColor;
+}
+h2 {
+  font-weight: 600;
+  letter-spacing: -0.005em;
+}
+.ui-card-head h2,
+.ui-card > h2 {
+  font-size: 15px;
+}
+.kicker {
+  gap: 0;
+  color: var(--text-3);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+}
+.kicker::after {
+  display: none;
+}
+.ui-summary-line {
+  font-size: 17px;
+  font-weight: 400;
+  color: var(--text-2);
+}
+.ui-summary-line strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* ---------- Cards: one flat surface, one hairline ---------- */
+.panel,
+.ui-card,
+body .ov-product,
+.ui-how,
+.lp-preview,
+.lp-steps li,
+.lp-feature {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: inset 0 1px 0 rgb(var(--ink-rgb) / 2.5%);
+}
+.ui-card::before,
+body .ov-product::before,
+.lp-feature::before,
+body .ov-product::after {
+  display: none;
+}
+.ui-card,
+body .ov-product,
+.lp-feature {
+  transition: border-color 0.3s,
+    opacity 0.9s var(--ease),
+    transform 0.9s var(--ease);
+}
+.ui-card:hover,
+body .ov-product:hover,
+.lp-feature:hover {
+  border-color: var(--line-strong);
+}
+body .ov-product:hover,
+.lp-feature:hover,
+.motion-ready .ov-product.in:hover {
+  transform: none;
+}
+.motion-ready .ui-card:not(.in),
+.motion-ready .ov-product:not(.in) {
+  transform: translateY(12px);
+}
+.ui-card {
+  padding: 24px 26px;
+}
+.ui-card-head {
+  margin-bottom: 18px;
+}
+.ui-card-head p {
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+/* Stats: no box inside a box — a label, a figure and a hairline above. */
+.ui-stat {
+  padding: 18px 20px;
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+}
+.ui-card .ui-stat,
+.panel .ui-stat {
+  padding: 14px 0 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+.ui-stat-label {
+  color: var(--text-3);
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+.ui-stat-value {
+  margin-top: 4px;
+  color: var(--text);
+  font-size: 24px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+.ui-stat-hint,
+.ui-stat small {
+  color: var(--text-3);
+}
+
+/* ---------- Product cards ---------- */
+body .ov-product {
+  gap: 4px;
+  padding: 20px 22px 16px;
+}
+body .ov-product-top h3 {
+  color: var(--text-2);
+  font-size: 11.5px;
+  letter-spacing: 0.1em;
+}
+body .ov-product-top h3 i {
+  width: 7px;
+  height: 7px;
+}
+body .ov-product-price {
+  margin-top: 6px;
+  font-size: 27px;
+  font-weight: 500;
+  letter-spacing: -0.025em;
+}
+body .ov-product-change {
+  font-size: 12.5px;
+  font-weight: 500;
+}
+body .ov-product-change.tone-neutral {
+  color: var(--text-2);
+}
+body .ov-product-foot strong {
+  font-weight: 500;
+}
+
+/* ---------- Buttons: solid, no glow ---------- */
+.ui-button.primary,
+.landing-cta {
+  border: 1px solid transparent;
+  background: var(--accent-fill);
+  color: var(--on-accent);
+  box-shadow: none;
+  font-weight: 600;
+}
+.ui-button.primary:hover,
+.landing-cta:hover {
+  background: var(--accent-fill);
+  box-shadow: none;
+  transform: none;
+}
+.button,
+.ui-button {
+  font-weight: 500;
+}
+
+/* ---------- Chips: quiet outline ---------- */
+.ui-chip {
+  font-weight: 500;
+}
+
+/* ---------- Overview hero ---------- */
+body .ov-hero h2 {
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+body .ov-hero-figures dd {
+  font-weight: 500;
+}
+
+/* ---------- Building-history note: neutral, not a blue banner ---------- */
+body .history-gate.compact {
+  border-color: var(--line);
+  background: var(--panel);
+}
+body .history-gate-body .kicker {
+  color: var(--text-3);
+}
+body .history-gate-body h2 {
+  font-weight: 600;
+}
+
+/* ---------- Price ladder: solid bars ---------- */
+body .price-ladder-bar {
+  background: var(--c);
+  opacity: 0.9;
+}
+body .price-ladder-track {
+  border-radius: 6px;
+}
+body .price-ladder-bar {
+  border-radius: 6px;
+}
+body .price-ladder strong {
+  font-weight: 500;
+}
+
+/* ---------- Sidebar: a little quieter ---------- */
+.g-side {
+  background: linear-gradient(
+    180deg,
+    rgb(var(--ink-rgb) / 5%),
+    rgb(var(--ink-rgb) / 2%)
+  );
+  border-color: rgb(var(--ink-rgb) / 9%);
+  box-shadow: inset 0 1px 0 rgb(var(--ink-rgb) / 12%),
+    0 18px 50px rgb(0 0 0 / 40%);
+}
+.g-side::before {
+  opacity: 0.5;
+}
+.g-side-nav a.active::before {
+  box-shadow: none;
+  background: var(--accent-fill);
+}
+.g-side-pill {
+  background: rgb(var(--ink-rgb) / 6%);
+  box-shadow: none;
+}
+
+/* ---------- Tables ---------- */
+.ui-table td {
+  border-color: var(--line);
+}
+
+/* ---------- Welcome crow chip ---------- */
+body .ov-welcome-glow {
+  opacity: 0.6;
+}
+
+/* Phones: products in a compact 2 x 2 grid */
+@media (max-width: 600px) {
+  body .ov-products {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+  body .ov-product {
+    padding: 14px 14px 12px;
+  }
+  body .ov-product-price {
+    font-size: 19px;
+  }
+  body .ov-product-expiry,
+  body .ov-product-change span {
+    display: none;
+  }
+  body .ov-product .ui-sparkline {
+    height: 34px;
+  }
+}
+
+/* ---------- No gradient text inside the app ---------- */
+.shell-content h1,
+.shell-content h2,
+.shell-content h3,
+body .ov-hero-pair h2 {
+  background: none;
+  color: var(--text);
+  -webkit-text-fill-color: currentColor;
+}
+body .ov-hero-pair h2 {
+  font-size: clamp(22px, 2.1vw, 28px);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+/* ---------- Compare summary: figures centred beside the gauge ---------- */
+.cmp-summary-body > .ui-grid-3,
+.cmp-summary-body > .ui-grid-2 {
+  align-self: center;
+}
+
+/* ---------- Tables: one neutral style everywhere ---------- */
+.shell-content table th {
+  background: transparent !important;
+  color: var(--text-3);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.shell-content table td,
+.shell-content table th {
+  border-color: var(--line) !important;
+}
+.shell-content table tbody th,
+.shell-content table td:first-child {
+  background: transparent !important;
+}
+.shell-content details details,
+.shell-content .calculation-details {
+  background: var(--panel-2) !important;
+  border-color: var(--line) !important;
+}
+
+/* ---------- Saved research empty state ---------- */
+.research-empty {
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+  max-width: 640px;
+  padding: 28px;
+}
+.research-empty h2 {
+  margin: 0;
+  font-size: 17px;
+}
+.research-empty p {
+  margin: 0;
+  color: var(--text-2);
+  font-size: 14px;
+  line-height: 1.6;
+}
+.research-empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+/* ---------- Welcome chip: never wider than the crow area ---------- */
+body .ov-welcome-chip {
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.shell-content .method-formula {
+  background: var(--panel-2) !important;
+  border-color: var(--line) !important;
+}
+.research-empty-crow {
+  margin: -6px 0 4px -8px;
+}

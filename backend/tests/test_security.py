@@ -135,7 +135,10 @@ def test_mfa_enrollment_required_at_login_and_replay_prevented(
     assert client.get("/api/auth/security").json()["mfa_enabled"] is True
     client.cookies.clear()
     login = {"email": "demo@example.com", "password": PASSWORD}
-    assert client.post("/api/auth/login", json=login).status_code == 401
+    step = client.post("/api/auth/login", json=login)
+    assert step.status_code == 401 and step.headers["x-auth-step"] == "mfa"
+    wrong = client.post("/api/auth/login", json={**login, "password": "wrong-pass"})
+    assert wrong.status_code == 401 and "x-auth-step" not in wrong.headers
     assert (
         client.post("/api/auth/login", json={**login, "otp": code}).status_code == 401
     )

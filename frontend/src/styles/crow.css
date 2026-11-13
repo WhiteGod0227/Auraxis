@@ -1,0 +1,415 @@
+/* ---------- Auraxis crow: parts, moods and motion ---------- */
+.crow {
+  display: block;
+  overflow: visible;
+  filter: drop-shadow(0 10px 24px rgb(0 0 0 / 55%));
+}
+.crow * {
+  transform-box: view-box;
+}
+.crow .crow-halo {
+  opacity: 0.9;
+}
+
+/* Pivot points in viewBox units. */
+.crow .crow-bird {
+  transform-origin: 112px 170px;
+}
+.crow .crow-torso {
+  transform-origin: 110px 160px;
+}
+.crow .crow-head {
+  transform-origin: 134px 100px;
+}
+.crow .crow-wing {
+  transform-origin: 92px 110px;
+}
+.crow .crow-eye {
+  transform-origin: 150px 76px;
+}
+.crow .crow-pupil {
+  transform: translate(calc(var(--lx, 0) * 2px), calc(var(--ly, 0) * 1.6px));
+  transition: transform 0.25s ease-out;
+}
+
+/* Accessories are hidden unless a mood shows them. */
+.crow .crow-monocle,
+.crow .crow-thinking,
+.crow .crow-sparkles,
+.crow .crow-sleep,
+.crow .crow-alert {
+  display: none;
+}
+.crow.mood-inspecting .crow-monocle,
+.crow.mood-guarding .crow-monocle,
+.crow.mood-perched .crow-monocle,
+.crow.mood-alert .crow-monocle {
+  display: inline;
+}
+.crow.mood-thinking .crow-thinking,
+.crow.mood-pecking .crow-thinking {
+  display: inline;
+}
+.crow.mood-celebrating .crow-sparkles {
+  display: inline;
+}
+.crow.mood-sleepy .crow-sleep {
+  display: inline;
+}
+.crow.mood-alert .crow-alert {
+  display: inline;
+}
+.crow.mood-flying .crow-legs {
+  opacity: 0;
+}
+.crow .crow-legs {
+  transition: opacity 0.3s;
+}
+
+/* ---------- Idle life (every animated crow) ---------- */
+.crow.is-animated .crow-bird {
+  animation: crow-float 4.8s ease-in-out infinite;
+}
+.crow.is-animated .crow-torso {
+  animation: crow-breathe 3.6s ease-in-out infinite;
+}
+.crow.is-animated .crow-eye {
+  animation: crow-blink 5.5s infinite;
+}
+.crow.is-animated .crow-head {
+  animation: crow-tilt 11s ease-in-out infinite;
+}
+.crow.is-animated .crow-halo {
+  animation: crow-halo 4.8s ease-in-out infinite;
+}
+
+/* ---------- Moods ---------- */
+.crow.is-animated.mood-thinking .crow-head {
+  animation: crow-ponder 4.2s ease-in-out infinite;
+}
+.crow.is-animated .crow-thinking circle {
+  animation: crow-think 2.4s ease-in-out infinite;
+}
+.crow.is-animated .crow-thinking circle:nth-child(2) {
+  animation-delay: 0.3s;
+}
+.crow.is-animated .crow-thinking circle:nth-child(3) {
+  animation-delay: 0.6s;
+}
+
+/* Alert: hops, bobs its head, flicks its wing. */
+.crow.is-animated.mood-alert .crow-bird {
+  animation: crow-hop 2.6s cubic-bezier(0.3, 0, 0.3, 1) infinite;
+}
+.crow.is-animated.mood-alert .crow-head {
+  animation: crow-bob 2.6s ease-in-out infinite;
+}
+.crow.is-animated.mood-alert .crow-wing {
+  animation: crow-flick 2.6s ease-in-out infinite;
+}
+.crow.is-animated .crow-alert path {
+  animation: crow-think 1.3s ease-in-out infinite;
+}
+
+/* Sleepy: eye closed, head drooped, slow breathing, drifting z's. */
+.crow.mood-sleepy .crow-eye {
+  transform: scaleY(0.12);
+}
+.crow.is-animated.mood-sleepy .crow-eye {
+  animation: none;
+}
+.crow.mood-sleepy .crow-head {
+  transform: rotate(10deg);
+}
+.crow.is-animated.mood-sleepy .crow-head {
+  animation: crow-nod 5s ease-in-out infinite;
+}
+.crow.is-animated.mood-sleepy .crow-torso {
+  animation-duration: 5s;
+}
+.crow.is-animated .crow-sleep .z {
+  animation: crow-z 3.6s ease-in-out infinite;
+}
+.crow.is-animated .crow-sleep .z2 {
+  animation-delay: 1.2s;
+}
+.crow.is-animated .crow-sleep .z3 {
+  animation-delay: 2.4s;
+}
+
+/* Pecking (loading): head dips to the bar. */
+.crow.is-animated.mood-pecking .crow-head {
+  animation: crow-peck 1.15s cubic-bezier(0.5, 0, 0.3, 1) infinite;
+}
+.crow.is-animated.mood-pecking .crow-bird {
+  animation: none;
+}
+
+/* Celebrating: hops with a wing flap and sparkles. */
+.crow.is-animated.mood-celebrating .crow-bird {
+  animation: crow-hop 1.4s cubic-bezier(0.3, 0, 0.3, 1) infinite;
+}
+.crow.is-animated.mood-celebrating .crow-wing {
+  animation: crow-flap 0.7s ease-in-out infinite;
+}
+.crow.is-animated .spark {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: crow-twinkle 2.8s ease-in-out infinite;
+}
+.crow.is-animated .spark.s2 {
+  animation-delay: 0.9s;
+}
+.crow.is-animated .spark.s3 {
+  animation-delay: 1.7s;
+}
+
+/* Flying: fast flaps, body level. */
+.crow.mood-flying .crow-bird {
+  animation: crow-glide 0.9s ease-in-out infinite !important;
+}
+.crow.mood-flying .crow-wing {
+  animation: crow-flap 0.32s ease-in-out infinite !important;
+}
+.crow.mood-flying .crow-head {
+  animation: none !important;
+  transform: rotate(-6deg);
+}
+
+/* ---------- Keyframes ---------- */
+@keyframes crow-float {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-3px) rotate(-1.2deg);
+  }
+}
+@keyframes crow-breathe {
+  0%,
+  100% {
+    transform: scale(1, 1);
+  }
+  50% {
+    transform: scale(1.012, 1.03);
+  }
+}
+@keyframes crow-blink {
+  0%,
+  92%,
+  100% {
+    transform: scaleY(1);
+  }
+  95% {
+    transform: scaleY(0.1);
+  }
+}
+@keyframes crow-tilt {
+  0%,
+  78%,
+  100% {
+    transform: rotate(0deg);
+  }
+  82%,
+  88% {
+    transform: rotate(-9deg);
+  }
+  92% {
+    transform: rotate(4deg);
+  }
+}
+@keyframes crow-ponder {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  45%,
+  70% {
+    transform: rotate(-12deg);
+  }
+}
+@keyframes crow-hop {
+  0%,
+  55%,
+  100% {
+    transform: translateY(0) scaleY(1);
+  }
+  60% {
+    transform: translateY(1px) scaleY(0.96);
+  }
+  70% {
+    transform: translateY(-12px) scaleY(1.02);
+  }
+  80% {
+    transform: translateY(0) scaleY(0.97);
+  }
+  86% {
+    transform: translateY(0) scaleY(1);
+  }
+}
+@keyframes crow-bob {
+  0%,
+  50%,
+  100% {
+    transform: rotate(0deg);
+  }
+  20% {
+    transform: rotate(-8deg);
+  }
+  35% {
+    transform: rotate(6deg);
+  }
+}
+@keyframes crow-flick {
+  0%,
+  58%,
+  100% {
+    transform: rotate(0deg);
+  }
+  68% {
+    transform: rotate(-22deg);
+  }
+  78% {
+    transform: rotate(0deg);
+  }
+}
+@keyframes crow-flap {
+  0%,
+  100% {
+    transform: rotate(0deg) scaleY(1);
+  }
+  50% {
+    transform: rotate(-48deg) scaleY(0.85);
+  }
+}
+@keyframes crow-glide {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-6deg);
+  }
+  50% {
+    transform: translateY(-4px) rotate(-4deg);
+  }
+}
+@keyframes crow-nod {
+  0%,
+  100% {
+    transform: rotate(10deg);
+  }
+  50% {
+    transform: rotate(16deg);
+  }
+}
+@keyframes crow-peck {
+  0%,
+  45%,
+  100% {
+    transform: rotate(0deg);
+  }
+  60% {
+    transform: rotate(34deg);
+  }
+  70% {
+    transform: rotate(28deg);
+  }
+  80% {
+    transform: rotate(34deg);
+  }
+}
+@keyframes crow-z {
+  0% {
+    opacity: 0;
+    transform: translate(-6px, 8px);
+  }
+  30%,
+  70% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(6px, -10px);
+  }
+}
+@keyframes crow-twinkle {
+  0%,
+  100% {
+    opacity: 0.2;
+    transform: scale(0.6);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes crow-think {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+@keyframes crow-halo {
+  0%,
+  100% {
+    opacity: 0.7;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Light theme: dark accessories so they show on paper. */
+:root[data-theme='light'] .crow .crow-thinking circle,
+:root[data-theme='light'] .crow .crow-sleep {
+  fill: #55555c;
+}
+:root[data-theme='light'] .crow .crow-alert {
+  stroke: #55555c;
+}
+:root[data-theme='light'] .crow .crow-sparkles {
+  fill: #8a8a91;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .crow *,
+  .crow.mood-flying * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* ---------- Landing guide crow ---------- */
+.crow-guide {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 4;
+  pointer-events: none;
+  will-change: transform;
+  transition: transform 1.2s cubic-bezier(0.45, 0, 0.25, 1);
+}
+.crow-guide-y {
+  will-change: transform;
+  /* Overshooting upward first gives the flight a gentle arc. */
+  transition: transform 1.2s cubic-bezier(0.3, -0.5, 0.35, 1);
+}
+.crow-guide-face {
+  transform-origin: 0 0;
+  transition: transform 1.2s cubic-bezier(0.45, 0, 0.25, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .crow-guide,
+  .crow-guide-y,
+  .crow-guide-face {
+    transition: none;
+  }
+}
+
+/* Landing: the guide crow is positioned against the page. */
+.lp {
+  position: relative;
+  overflow-x: clip;
+}

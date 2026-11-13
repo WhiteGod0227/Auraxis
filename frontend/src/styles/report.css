@@ -1,0 +1,243 @@
+/* ---------- Plain-English insights ---------- */
+.insight-list {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.insight {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr);
+  align-items: start;
+  gap: 12px;
+  color: var(--text-2);
+  font-size: 14px;
+  line-height: 1.6;
+}
+.insight strong {
+  color: var(--text);
+  font-weight: 600;
+}
+.insight > i {
+  width: 8px;
+  height: 8px;
+  margin-top: 8px;
+  border-radius: 50%;
+  background: var(--text-3);
+}
+.insight.tone-high > i {
+  background: #ca723c;
+}
+.insight.tone-low > i {
+  background: #5e97d0;
+}
+.insight.tone-normal > i {
+  background: #8e8e96;
+}
+.insight.tone-caution > i {
+  border: 1.5px solid var(--text-3);
+  background: transparent;
+}
+.ov-insights .insight-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 32px;
+}
+@media (max-width: 900px) {
+  .ov-insights .insight-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.ov-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* ---------- Report ---------- */
+.report-page {
+  display: grid;
+  gap: 16px;
+  max-width: 960px;
+}
+.report-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.report-actions-spacer {
+  flex: 1;
+}
+.report-sheet {
+  display: grid;
+  gap: 28px;
+  padding: 36px 40px;
+}
+.report-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--line);
+}
+.report-head h1 {
+  margin: 6px 0 6px;
+  font-size: clamp(26px, 3vw, 34px);
+}
+.report-meta {
+  margin: 0;
+  color: var(--text-3);
+  font-size: 13px;
+}
+.report-crow {
+  flex: none;
+  margin-top: -10px;
+}
+.report-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+}
+.report-lede {
+  margin: 0;
+  color: var(--text);
+  font-size: 19px;
+  line-height: 1.5;
+}
+.report-lede strong {
+  font-weight: 600;
+}
+.report-figures {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 20px;
+}
+.report-figures .ui-stat {
+  padding: 14px 0 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  background: none;
+}
+.report-block h2 {
+  margin: 0 0 14px;
+  font-size: 15px;
+}
+.report-chart .ui-card {
+  padding: 0;
+  border: 0;
+  box-shadow: none;
+  background: none;
+}
+.report-notes ul {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 18px;
+  color: var(--text-2);
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+.report-foot {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+  color: var(--text-3);
+  font-size: 12px;
+}
+@media (max-width: 720px) {
+  .report-sheet {
+    padding: 24px 20px;
+  }
+  .report-figures {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* ---------- Print: a clean light page with the report only ---------- */
+@media print {
+  :root,
+  :root[data-theme='dark'],
+  :root[data-theme='light'] {
+    color-scheme: light;
+    --ink-rgb: 20 20 24;
+    --bg: #ffffff;
+    --panel: #ffffff;
+    --panel-2: #fafaf8;
+    --panel-3: #f0f0ed;
+    --line: rgb(20 20 24 / 12%);
+    --line-strong: rgb(20 20 24 / 18%);
+    --text-strong: #000000;
+    --text: #141416;
+    --text-2: #3f3f45;
+    --text-3: #6b6b72;
+    --grid: rgb(20 20 24 / 10%);
+    --axis: #6b6b72;
+    --tooltip-bg: #ffffff;
+    --tooltip-border: rgb(20 20 24 / 12%);
+  }
+  @page {
+    margin: 14mm;
+  }
+  html,
+  body {
+    background: #ffffff !important;
+  }
+  .backdrop,
+  .scroll-progress,
+  .g-side,
+  .g-topbar,
+  .g-scrim,
+  .shell-footer,
+  .shell-banner,
+  .report-actions,
+  .skip-link,
+  .data-source-notice,
+  .seg-toggle,
+  .ui-segmented {
+    display: none !important;
+  }
+  .shell .shell-main {
+    margin: 0 !important;
+  }
+  .shell .shell-content {
+    max-width: none;
+    padding: 0 !important;
+  }
+  .page-enter {
+    animation: none !important;
+  }
+  .report-page {
+    max-width: none;
+  }
+  .report-sheet {
+    padding: 0;
+    border: 0;
+    box-shadow: none !important;
+  }
+  .report-block,
+  .report-figures {
+    break-inside: avoid;
+  }
+  .crow {
+    filter: none;
+  }
+  .motion-ready .ui-card:not(.in) {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
+
+/* While preparing a PDF the sheet takes A4 content width (~180 mm). */
+:root.report-printing .report-page {
+  max-width: 690px;
+}
+.report-notes ul {
+  list-style: disc;
+}

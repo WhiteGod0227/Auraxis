@@ -9,12 +9,15 @@ import unicodedata
 from contextlib import contextmanager
 from datetime import UTC, datetime
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.core.config import BACKEND_DIR, Settings, get_settings
 
 COOKIE = "auraxis_session"
+GOOGLE_ISSUERS = {"accounts.google.com", "https://accounts.google.com"}
+GOOGLE_TOKENINFO = "https://oauth2.googleapis.com/tokeninfo"
 ITERATIONS = 600_000
 router = APIRouter(prefix="/api/auth", tags=["accounts"])
 
@@ -266,10 +269,109 @@ def login(
         ).fetchone()
         if not current or current[0] != stored:
             raise HTTPException(401, "Credentials changed. Please retry.")
+        require_second_factor(db, user["id"], body.otp)
         verify_second_factor(db, user["id"], body.otp.strip())
         db.execute("DELETE FROM attempts WHERE key=?", (key,))
         start_session(db, request, response, user["id"], settings)
     return {"user": {key: user[key] for key in ("id", "name", "email")}}
+
+
+def require_second_factor(db, user_id, otp):
+    """Ask the client for a second step instead of failing a blank MFA code."""
+    from app.api.security import mfa_row
+
+    row = mfa_row(db, user_id)
+    if row and row["secret"] and not otp.strip():
+        raise HTTPException(
+            401,
+            "Enter the 6-digit code from your authenticator app, or a recovery code.",
+            headers={"X-Auth-Step": "mfa"},
+        )
+
+
+class GoogleCredential(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    credential: str = Field(min_length=20, max_length=4096)
+    otp: str = Field(default="", max_length=128)
+
+
+@router.get("/providers")
+def providers(response: Response, settings: Settings = Depends(get_settings)):
+    response.headers["Cache-Control"] = "no-store"
+    return {"google_client_id": settings.google_client_id.strip() or None}
+
+
+def verify_google_credential(credential, settings):
+    try:
+        reply = httpx.get(GOOGLE_TOKENINFO, params={"id_token": credential}, timeout=10)
+    except httpx.HTTPError:
+        raise HTTPException(
+            503, "Google sign-in is temporarily unavailable. Please retry."
+        ) from None
+    info = reply.json() if reply.status_code == 200 else {}
+    try:
+        expires = int(info.get("exp", 0))
+    except (TypeError, ValueError):
+        expires = 0
+    if (
+        info.get("aud") != settings.google_client_id.strip()
+        or info.get("iss") not in GOOGLE_ISSUERS
+        or str(info.get("email_verified", "")).lower() != "true"
+        or expires < time.time()
+        or not info.get("email")
+    ):
+        raise HTTPException(401, "Google sign-in could not be verified.")
+    return info
+
+
+@router.post("/google", response_model=Account)
+def google_login(
+    body: GoogleCredential,
+    request: Request,
+    response: Response,
+    settings: Settings = Depends(safe_request),
+):
+    if not settings.google_client_id.strip():
+        raise HTTPException(404, "Google sign-in is not configured.")
+    key = consume_attempt(settings, request, "google")
+    info = verify_google_credential(body.credential, settings)
+    email = str(info["email"]).strip().lower()
+    try:
+        name = validate_name(str(info.get("name") or email.split("@")[0]))
+    except ValueError:
+        name = email.split("@")[0][:100] or "Gold researcher"
+    from app.api.security import verify_second_factor
+
+    with database(settings) as db:
+        db.execute(
+            "CREATE TABLE IF NOT EXISTS account_metadata ("
+            "user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, "
+            "created_at TEXT NOT NULL)"
+        )
+        db.execute("BEGIN IMMEDIATE")
+        user = db.execute(
+            "SELECT id,name,email FROM users WHERE email=?", (email,)
+        ).fetchone()
+        if user:
+            # Google proves the email; an enabled authenticator still applies.
+            require_second_factor(db, user["id"], body.otp)
+            verify_second_factor(db, user["id"], body.otp.strip())
+            user = dict(user)
+        else:
+            # Unknown random password: Google accounts sign in with Google
+            # (or set a password later through recovery-code reset).
+            cursor = db.execute(
+                "INSERT INTO users(name,email,password_hash) VALUES (?,?,?)",
+                (name, email, password_hash(secrets.token_urlsafe(32))),
+            )
+            user = {"id": cursor.lastrowid, "name": name, "email": email}
+            db.execute(
+                "INSERT INTO account_metadata VALUES (?,?)",
+                (user["id"], datetime.now(UTC).isoformat()),
+            )
+        db.execute("DELETE FROM attempts WHERE key=?", (key,))
+        start_session(db, request, response, user["id"], settings)
+    return {"user": user}
 
 
 def current_user(request: Request, settings: Settings = Depends(safe_request)):

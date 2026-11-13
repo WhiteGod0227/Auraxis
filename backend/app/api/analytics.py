@@ -171,6 +171,86 @@ def _description(row):
     )
 
 
+_SUMMARY_CACHE: dict[tuple, list] = {}
+
+
+@router.get("/spreads/summary")
+def spreads_summary(
+    window: int = Query(10, ge=2, le=60),
+    history: int = Query(30, ge=2, le=250),
+    connection=Depends(get_connection),
+    settings: Settings = Depends(get_settings),
+):
+    """Latest reading per configured pair, for the dashboard overview.
+
+    Uses the same defaults and expiry rule as the comparison page (earliest
+    expiry at least three calendar days after the latest session), without
+    per-row calculation traces.
+    """
+    raw, available = _read(connection, bhav)
+    result = _base(raw)
+    result.update(window=window, pairs=[])
+    if not available:
+        return result
+    as_of = result["data_as_of"]
+    key = (
+        settings.database_url,
+        as_of,
+        len(raw),
+        round(float(raw.close.fillna(0).sum()), 4) if "close" in raw else 0.0,
+        window,
+        history,
+        tuple(settings.spread_pairs),
+    )
+    if key in _SUMMARY_CACHE:
+        result["pairs"] = _SUMMARY_CACHE[key]
+        return result
+    threshold = as_of + pd.Timedelta(days=3) if as_of is not None else None
+    engine = ConnectionEngine(connection)
+    for pair in settings.spread_pairs:
+        frame = compute_spreads(
+            pair=pair,
+            window=window,
+            min_periods=min(5, window),
+            carry_adjusted=True,
+            use_purity_adjustment=False,
+            min_volume_grams=2000,
+            min_oi_grams=0,
+            settings=settings,
+            engine=engine,
+        )
+        if frame.empty:
+            continue
+        expiries = sorted(frame.expiry_a.unique())
+        later = [e for e in expiries if threshold is not None and e >= threshold]
+        chosen = later[0] if later else expiries[-1]
+        group = frame.loc[frame.expiry_a == chosen].sort_values("trade_date")
+        latest = group.iloc[-1]
+        result["pairs"].append(
+            json_safe(
+                dict(
+                    pair=pair,
+                    expiry=chosen,
+                    trade_date=latest.trade_date,
+                    a_p10=latest.a_p10_999,
+                    b_p10=latest.b_p10_999,
+                    spread_abs=latest.spread_abs,
+                    spread_pct=latest.spread_pct,
+                    z=latest.z,
+                    percentile=latest.percentile,
+                    history=[
+                        dict(trade_date=row.trade_date, spread_abs=row.spread_abs)
+                        for row in group.tail(history).itertuples()
+                    ],
+                )
+            )
+        )
+    if len(_SUMMARY_CACHE) > 16:
+        _SUMMARY_CACHE.clear()
+    _SUMMARY_CACHE[key] = result["pairs"]
+    return result
+
+
 @router.get("/spreads", response_model=SpreadsResponse)
 def spreads_api(
     pair: str,

@@ -1,18 +1,27 @@
 import {
+  ComposedChart,
   CartesianGrid,
   Legend,
   Line,
-  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from 'recharts'
 import { referenceChartRows } from '@/lib/chart'
-import { number, currency, formatDate } from '@/lib/format'
+import { currency, formatDate } from '@/lib/format'
+import {
+  AXIS,
+  GRID,
+  compactInr,
+  draw,
+  legendStyle,
+  productColor,
+  tooltipStyle,
+} from '@/lib/chartTheme'
 import type { PricesResponse } from '@/lib/types'
 
-const colors = ['#F5B942', '#60A5FA', '#A78BFA', '#2DD4BF']
+/** One clean line per product, each in its own colour. */
 export default function ReferencePriceChart({
   response,
 }: {
@@ -26,59 +35,57 @@ export default function ReferencePriceChart({
       aria-label={`Fixed-expiry prices in ${response.normalization.unit}. ${response.series.map((s) => `${s.product}, expiry ${s.expiry_date}`).join('; ')}`}
     >
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart
+        <ComposedChart
           data={chartRows}
-          margin={{ top: 18, right: 18, left: 8, bottom: 10 }}
+          margin={{ top: 12, right: 12, left: 0, bottom: 4 }}
           accessibilityLayer
         >
-          <CartesianGrid stroke="#232B38" vertical={false} />
+          <CartesianGrid stroke={GRID} vertical={false} />
           <XAxis
             dataKey="date"
-            stroke="#9AA6B8"
+            stroke={AXIS}
             tickLine={false}
             axisLine={false}
-            minTickGap={36}
+            minTickGap={40}
             tickFormatter={(value) => formatDate(String(value)).slice(0, 6)}
           />
           <YAxis
-            stroke="#9AA6B8"
+            stroke={AXIS}
             tickLine={false}
             axisLine={false}
-            width={78}
+            width={64}
             domain={['auto', 'auto']}
-            tickFormatter={(value) => `₹${number.format(Number(value))}`}
+            tickFormatter={compactInr}
           />
           <Tooltip
-            contentStyle={{
-              background: '#141922',
-              border: '1px solid #384355',
-              borderRadius: 12,
-              color: '#E8EDF5',
-            }}
+            contentStyle={tooltipStyle}
             labelFormatter={(value) => formatDate(String(value))}
             formatter={(value, name) => [
-              typeof value === 'number'
-                ? currency.format(value)
-                : 'Unavailable',
+              typeof value === 'number' ? currency.format(value) : '—',
               String(name ?? ''),
             ]}
+            cursor={{
+              stroke: 'rgb(var(--ink-rgb) / 25%)',
+              strokeDasharray: '3 3',
+            }}
           />
-          <Legend wrapperStyle={{ fontSize: 12, paddingTop: 18 }} />
+          <Legend iconType="circle" iconSize={9} wrapperStyle={legendStyle} />
           {response.series.map((series, index) => (
             <Line
               key={`${series.product}-${series.expiry_date}`}
               type="linear"
               dataKey={`price${index}`}
-              name={`${series.product} · ${series.expiry_date ?? 'no reference'}`}
-              stroke={colors[index % colors.length]}
+              name={series.product}
+              stroke={productColor(series.product, index)}
               strokeWidth={2}
               dot={false}
-              activeDot={{ r: 4 }}
+              activeDot={{ r: 4, strokeWidth: 0 }}
               connectNulls={false}
-              isAnimationActive={false}
+              {...draw}
+              animationBegin={index * 120}
             />
           ))}
-        </LineChart>
+        </ComposedChart>
       </ResponsiveContainer>
     </div>
   )

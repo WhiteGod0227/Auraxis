@@ -69,22 +69,26 @@ export default function CoverageCalendar({
               }}
             >
               <time dateTime={day.date}>{Number(day.date.slice(-2))}</time>
-              <span>
-                {day.observation_count
-                  ? `${day.observation_count} rows`
-                  : 'Not loaded'}
+              <span className="coverage-rows">
+                {day.observation_count ? (
+                  `${day.observation_count} rows`
+                ) : (
+                  <>
+                    —<span className="sr-only">Not loaded</span>
+                  </>
+                )}
               </span>
               {!!(
                 day.no_trade_count ||
                 day.zero_volume_count ||
                 day.thin_volume_count ||
                 day.invalid_close_count
-              ) && <span className="coverage-flag">Quality flags</span>}
-              {!!day.ingestion_count && (
-                <span>
-                  {day.ingestion_count} file record
-                  {day.ingestion_count === 1 ? '' : 's'}
-                </span>
+              ) && (
+                <span
+                  className="coverage-flag"
+                  aria-label="Quality flags"
+                  title="Some contracts had no trades or thin volume"
+                />
               )}
             </button>
           ),

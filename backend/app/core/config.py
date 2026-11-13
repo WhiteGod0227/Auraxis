@@ -1,6 +1,6 @@
 from functools import lru_cache
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
@@ -84,8 +84,34 @@ class Settings(BaseSettings):
         "http://localhost:5180",
         "http://localhost:5173",
     ]
+    # Upstox market-data connector. An Analytics Token (Developer Apps →
+    # Analytics, valid for one year, read-only) is recommended over the daily
+    # OAuth access token. Never commit a real token.
+    upstox_access_token: str = ""
+    upstox_api_base: str = "https://api.upstox.com"
+    upstox_instruments_url: str = (
+        "https://assets.upstox.com/market-quote/instruments/exchange/MCX.json.gz"
+    )
+    # Unit Upstox reports for MCX candle volume / open interest.
+    upstox_volume_unit: Literal["lots", "grams"] = "lots"
+    upstox_history_days: int = Field(default=365, ge=1, le=3650)
+    # Expired-contract history requires an Upstox Plus subscription.
+    upstox_include_expired: bool = False
+    upstox_timeout: float = Field(default=20.0, gt=0)
+    # Background refresh interval while the API runs; 0 disables it.
+    auto_refresh_hours: float = Field(default=6, ge=0)
+    # Auto-import MCX Bhavcopy CSVs that appear in a folder (default: Downloads).
+    bhavcopy_watch: bool = False
+    bhavcopy_watch_dir: Path | None = None
+    bhavcopy_watch_seconds: float = Field(default=6, ge=1)
+    # Emails allowed to trigger a manual refresh; empty allows any signed-in user.
+    data_admin_emails: Annotated[list[str], NoDecode] = []
+    # Google Identity Services web client ID; empty hides Google sign-in.
+    google_client_id: str = ""
 
-    @field_validator("cors_origins", "bhavcopy_symbols", mode="before")
+    @field_validator(
+        "cors_origins", "bhavcopy_symbols", "data_admin_emails", mode="before"
+    )
     @classmethod
     def parse_csv_values(cls, value: str | list[str]) -> list[str]:
         if isinstance(value, str):

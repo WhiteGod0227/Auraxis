@@ -4,14 +4,28 @@ import { BrowserRouter } from 'react-router-dom'
 
 import App from './App'
 import AppErrorBoundary from './components/AppErrorBoundary'
-import StarBackground from './components/StarBackground'
+import { Backdrop, MotionManager } from './components/Motion'
+import CrowCursor from './components/CrowCursor'
+import Presenter from './components/Presenter'
 import './styles/index.css'
 import './styles/glass.css'
+import './styles/design.css'
+import './styles/graphite.css'
+import './styles/sidebar.css'
+import './styles/history.css'
+import './styles/refine.css'
+import './styles/theme.css'
+import { initTheme } from './lib/theme'
+
+initTheme()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
-      <StarBackground />
+      <Backdrop />
+      <MotionManager />
+      <CrowCursor />
+      <Presenter />
       <div className="auraxis-content">
         <AppErrorBoundary>
           <App />

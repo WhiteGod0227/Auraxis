@@ -8,6 +8,26 @@
       content="Auraxis research dashboard for MCX gold futures"
     />
     <title>Auraxis</title>
+    <meta name="theme-color" content="#0b0b0d" />
+    <script>
+      // Set the theme before first paint: saved choice, else the device setting.
+      ;(function () {
+        var theme = 'dark'
+        try {
+          var saved = localStorage.getItem('auraxis.theme')
+          if (saved === 'light' || saved === 'dark') theme = saved
+          else if (matchMedia('(prefers-color-scheme: light)').matches)
+            theme = 'light'
+        } catch (e) {}
+        document.documentElement.dataset.theme = theme
+      })()
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
   </head>
   <body>
     <div id="root"></div>

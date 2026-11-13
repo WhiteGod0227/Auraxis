@@ -1,12 +1,25 @@
-import DataContext from '@/components/DataContext'
 import { lazy, Suspense, useCallback, useState } from 'react'
-import { useOutletContext } from 'react-router-dom'
+import { Link, useOutletContext, useSearchParams } from 'react-router-dom'
 import { api } from '@/lib/api'
 import { useResource } from '@/lib/useResource'
 import { selectExpiry, maturityMatchingChange } from '@/lib/relativeValue'
-import { currency, formatDate, number } from '@/lib/format'
+import { formatDate } from '@/lib/format'
 import DiagnosticLabel from '@/components/DiagnosticLabel'
-import CrowLoader from '@/components/CrowLoader'
+import { GapChip, HowItWorks, Skeleton, Stat } from '@/components/ui'
+import { Ring, ZGauge } from '@/components/LuxCharts'
+import { HistoryGate } from '@/components/HistoryGate'
+import { MIN_SESSIONS, useBuildingHistory } from '@/lib/history'
+import {
+  gapLevel,
+  inr,
+  longDate,
+  num,
+  pairLabel,
+  pairParts,
+  shortDate,
+  signedInr,
+  signedPct,
+} from '@/lib/insight'
 import ComparisonExplanation from '@/components/ComparisonExplanation'
 import SaveResearch from '@/components/SaveResearch'
 import { useWorkspace } from '@/lib/workspaceContext'
@@ -26,11 +39,17 @@ const pairs = [
   'GOLDM-GOLDGUINEA',
   'GOLDM-GOLDPETAL',
 ]
-const reading = (value: number | null | undefined, money = false) =>
-  typeof value === 'number' && Number.isFinite(value)
-    ? (money ? currency : number).format(value)
-    : 'Unavailable'
+function rankText(percentile: number | null, window: number) {
+  if (typeof percentile !== 'number' || !Number.isFinite(percentile))
+    return 'Not enough history yet'
+  if (percentile >= 99.5) return `Highest of the last ${window} sessions`
+  if (percentile <= 0.5) return `Lowest of the last ${window} sessions`
+  return percentile >= 50
+    ? `Higher than ${Math.round(percentile)}% of the last ${window} sessions`
+    : `Lower than ${Math.round(100 - percentile)}% of the last ${window} sessions`
+}
 export function RelativeValuePage() {
+  const { sessions, building } = useBuildingHistory()
   const workspace = useWorkspace()
   const saved =
     workspace?.configuration.kind === 'relative_value'
@@ -50,11 +69,29 @@ export function RelativeValuePage() {
         }
       : undefined,
   )
-  const { pair, window, purity, carry, preferred } = restored ?? relativeValue
-  const remember = (values: Partial<typeof relativeValue>) =>
-    saved
-      ? setRestored((previous) => ({ ...previous!, ...values }))
-      : setRelativeValue((previous) => ({ ...previous, ...values }))
+  // A link such as ?pair=GOLDGUINEA-GOLDPETAL&expiry=2026-11-30 opens that pair.
+  const [search, setSearch] = useSearchParams()
+  const linkedPair = saved ? null : search.get('pair')
+  const linked = linkedPair
+    ? {
+        ...relativeValue,
+        pair: linkedPair,
+        preferred: search.get('expiry') ?? undefined,
+      }
+    : relativeValue
+  const { pair, window, purity, carry, preferred } = restored ?? linked
+  const remember = (values: Partial<typeof relativeValue>) => {
+    if (saved) {
+      setRestored((previous) => ({ ...previous!, ...values }))
+      return
+    }
+    setRelativeValue((previous) => ({
+      ...previous,
+      ...(linkedPair ? linked : {}),
+      ...values,
+    }))
+    if (linkedPair) setSearch({}, { replace: true })
+  }
   const goldm = pair.startsWith('GOLDM-')
   const actualCarry = goldm || saved ? carry : true
   const load = useCallback(
@@ -111,438 +148,344 @@ export function RelativeValuePage() {
       : null
   const config = data?.configuration
   const offlineUnavailable = resource.errorKind === 'offline-unavailable'
-  const [a, b] = pair.split('-')
+  const [a, b] = pairParts(pair)
+  const gap = latest?.spread_abs
+  const level = gapLevel(latest?.z)
   return (
-    <div className="overview-page relative-value-page">
-      <div className="page-heading">
-        <div>
-          <p className="eyebrow">FIXED-EXPIRY DIAGNOSTICS</p>
-          <h1>Relative Value</h1>
-          <p className="page-description">
-            Compare gold futures on a common quote-size basis.
-          </p>
-        </div>
-      </div>
-      {response && (
-        <DataContext
-          date={data?.data_as_of}
-          source={response.source}
-          experimental={config?.use_purity_adjustment}
-        />
-      )}
-      <SaveResearch
-        selectionLabel={
-          data && selected
-            ? `${data.configuration.pair} · ${formatDate(selected)}`
-            : undefined
-        }
-        currentContext={
-          response
-            ? { data_as_of: response.data.data_as_of, source: response.source }
-            : undefined
-        }
-        candidate={researchCandidate(
-          response,
-          resource.loading,
-          data && series
-            ? relativeConfiguration(data, preferred ? selected : undefined)
-            : undefined,
-        )}
-      />
-      {saved && data && !series && (
-        <p className="error-notice" role="alert">
-          Saved expiry is unavailable for these settings. No other expiry has
-          been substituted. Select another expiry explicitly to continue.
-        </p>
-      )}
-      {latest && response && (
-        <section
-          className="panel rv-result-summary"
-          aria-label="Comparison result summary"
-        >
-          <h2>
-            {data?.configuration.pair} · {formatDate(latest.expiry_a)}
-          </h2>
-          <p>
-            <strong>Price gap: {reading(latest.spread_abs, true)}</strong> per
-            10 g (
-            {typeof latest.spread_pct === 'number' &&
-            Number.isFinite(latest.spread_pct)
-              ? `${reading(latest.spread_pct)}% of B`
-              : 'Unavailable'}
-            ).
-          </p>
-          {goldm && (
-            <p>
-              Maturity matching {actualCarry ? 'on' : 'off'}. Change from
-              matching:{' '}
-              {comparison.loading
-                ? 'Loading comparison…'
-                : change === null
-                  ? 'Unavailable for this exact observation'
-                  : `${reading(change, true)} per 10 g (on minus off)`}
-              .
-              {comparison.response?.source === 'Offline snapshot' && (
-                <> Comparison source: {comparison.response.source}.</>
-              )}
-              {comparison.error && (
-                <>
-                  {' '}
-                  {comparison.error}{' '}
-                  <button className="button" onClick={comparison.retry}>
-                    Retry comparison
-                  </button>
-                </>
-              )}
-            </p>
-          )}
-          {(latest.reason || latest.liquidity_reason) && (
-            <p>
-              <DiagnosticLabel
-                code={latest.reason || latest.liquidity_reason}
-              />
-            </p>
-          )}
-        </section>
-      )}
-      <section className="panel rv-controls" aria-label="Comparison controls">
-        <label>
-          Pair
-          <select
-            aria-label="Pair"
-            value={pair}
-            onChange={(e) => {
-              remember({
-                preferred: selected ?? preferred,
-                pair: e.target.value,
-              })
-            }}
-          >
-            {pairs.map((p) => (
-              <option key={p}>{p}</option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Fixed expiry (A)
-          <select
-            aria-label="Fixed expiry"
-            value={selected ?? ''}
-            disabled={!data?.series.length}
-            onChange={(e) => remember({ preferred: e.target.value })}
-          >
-            {!selected && <option value="">Unavailable</option>}
-            {data?.series.map((s) => (
-              <option key={s.expiry_a} value={s.expiry_a}>
-                {formatDate(s.expiry_a)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Window (observations)
-          <select
-            aria-label="Window"
-            value={window}
-            onChange={(e) => {
-              remember({
-                preferred: selected ?? preferred,
-                window: Number(e.target.value),
-              })
-            }}
-          >
-            {Array.from({ length: 26 }, (_, i) => i + 5).map((n) => (
-              <option key={n}>{n}</option>
-            ))}
-          </select>
-        </label>
-        <label className="rv-toggle">
-          <input
-            type="checkbox"
-            checked={purity}
-            onChange={(e) => {
-              remember({
-                preferred: selected ?? preferred,
-                purity: e.target.checked,
-              })
-            }}
-          />
-          Purity adjustment (experimental)
-        </label>
-        {goldm && (
-          <label className="rv-toggle">
-            <input
-              type="checkbox"
-              checked={carry}
-              onChange={(e) => {
+    <div className="cmp-page">
+      <section className="cmp-toolbar" aria-label="Comparison controls">
+        <div className="ui-controls">
+          <label className="ui-field">
+            Pair
+            <select
+              aria-label="Pair"
+              value={pair}
+              onChange={(e) =>
                 remember({
                   preferred: selected ?? preferred,
-                  carry: e.target.checked,
+                  pair: e.target.value,
                 })
-              }}
-            />
-            Maturity matching
+              }
+            >
+              {pairs.map((p) => (
+                <option key={p} value={p}>
+                  {pairLabel(p)}
+                </option>
+              ))}
+            </select>
           </label>
-        )}
-        <details className="applied-settings">
-          <summary>Applied settings</summary>
-          <dl className="settings-list">
-            <dt>Minimum observations</dt>
-            <dd>{config?.min_periods ?? saved?.query.min_periods ?? 5}</dd>
-            <dt>Minimum volume</dt>
-            <dd>
-              {config?.min_volume_grams ??
-                saved?.query.min_volume_grams ??
-                2000}{' '}
-              g
-            </dd>
-            <dt>Minimum open interest</dt>
-            <dd>{config?.min_oi_grams ?? saved?.query.min_oi_grams ?? 0} g</dd>
-            <dt>Expiry filter</dt>
-            <dd>{config?.expiry ?? saved?.query.expiry ?? 'All expiries'}</dd>
-          </dl>
-          <p>
-            The initial selection is the earliest expiry at least three calendar
-            days after the historical data date, otherwise the latest available.
-          </p>
-        </details>
-      </section>
-      {resource.loading && (
-        <div className="panel">
-          <CrowLoader label="Loading comparison…" />
+          <label className="ui-field">
+            Contract expiry
+            <select
+              aria-label="Fixed expiry"
+              value={selected ?? ''}
+              disabled={!data?.series.length}
+              onChange={(e) => remember({ preferred: e.target.value })}
+            >
+              {!selected && <option value="">—</option>}
+              {data?.series.map((s) => (
+                <option key={s.expiry_a} value={s.expiry_a}>
+                  {formatDate(s.expiry_a)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="ui-field">
+            Compare with last
+            <select
+              aria-label="Window"
+              value={window}
+              onChange={(e) =>
+                remember({
+                  preferred: selected ?? preferred,
+                  window: Number(e.target.value),
+                })
+              }
+            >
+              {Array.from({ length: 26 }, (_, i) => i + 5).map((n) => (
+                <option key={n} value={n}>
+                  {n} sessions
+                </option>
+              ))}
+            </select>
+          </label>
+          <details className="cmp-more">
+            <summary>More options</summary>
+            <div className="cmp-more-panel">
+              <label className="ui-toggle">
+                <input
+                  type="checkbox"
+                  checked={purity}
+                  onChange={(e) =>
+                    remember({
+                      preferred: selected ?? preferred,
+                      purity: e.target.checked,
+                    })
+                  }
+                />
+                Purity adjustment (experimental)
+              </label>
+              {goldm && (
+                <label className="ui-toggle">
+                  <input
+                    type="checkbox"
+                    checked={carry}
+                    onChange={(e) =>
+                      remember({
+                        preferred: selected ?? preferred,
+                        carry: e.target.checked,
+                      })
+                    }
+                  />
+                  Match maturities
+                </label>
+              )}
+            </div>
+          </details>
         </div>
+        <SaveResearch
+          selectionLabel={
+            data && selected
+              ? `${data.configuration.pair} · ${formatDate(selected)}`
+              : undefined
+          }
+          currentContext={
+            response
+              ? {
+                  data_as_of: response.data.data_as_of,
+                  source: response.source,
+                }
+              : undefined
+          }
+          candidate={researchCandidate(
+            response,
+            resource.loading,
+            data && series
+              ? relativeConfiguration(data, preferred ? selected : undefined)
+              : undefined,
+          )}
+        />
+        {series && (
+          <Link
+            className="ui-button cmp-share"
+            to={`/app/report?pair=${encodeURIComponent(pair)}&expiry=${series.expiry_a}`}
+          >
+            Share report
+          </Link>
+        )}
+      </section>
+
+      {saved && data && !series && (
+        <p className="error-notice" role="alert">
+          The saved expiry is no longer available. Pick another expiry to
+          continue.
+        </p>
       )}
       {resource.error && (
         <div className="error-notice" role="alert">
-          <p>
+          <span>
             {offlineUnavailable
-              ? 'This configuration is unavailable offline'
+              ? 'This configuration is unavailable offline.'
               : resource.error}
-          </p>
-          {offlineUnavailable && (
-            <button className="button" onClick={() => remember({ window: 10 })}>
-              Restore default window (10)
+          </span>
+          <span className="ui-page-actions">
+            {offlineUnavailable && (
+              <button
+                className="button"
+                onClick={() => remember({ window: 10 })}
+              >
+                Use 10 sessions
+              </button>
+            )}
+            <button className="button" onClick={resource.retry}>
+              Retry
             </button>
-          )}
-          <button className="button" onClick={resource.retry}>
-            Retry
-          </button>
+          </span>
         </div>
       )}
-      <ComparisonExplanation
-        resource={resource}
-        row={latest}
-        counterpart={comparison}
-        counterpartRow={other}
-      />
-      {response && data && (
+
+      {resource.loading && !latest ? (
+        <div className="ui-stack">
+          <Skeleton height={210} />
+          <Skeleton height={340} />
+        </div>
+      ) : latest && series && data ? (
         <>
-          <details className="calculation-details">
-            <summary>Calculation basis and data window</summary>
-            <p>
-              {data.normalization.unit};{' '}
-              {config?.use_purity_adjustment
-                ? data.normalization.basis
-                : 'quote-size conversion; purity adjustment off'}
-              . Purity assumptions remain unverified.
-            </p>
-            <p>
-              {formatDate(data.data_window.first_trade_date)} to{' '}
-              {formatDate(data.data_window.last_trade_date)} ·{' '}
-              {meta.response?.data.trading_session_count ?? 'Unavailable'}{' '}
-              sessions.
-            </p>
-            <p>
-              Requested dates: {config?.start ?? 'Start of data'} to{' '}
-              {config?.end ?? 'End of data'}.
-            </p>
-          </details>
-          {!series && (
-            <div className="panel empty-state">
-              {data.message ??
-                'No expiry observations available for this configuration.'}
-            </div>
-          )}
-          {series && latest && (
-            <>
-              <section className="panel">
-                <div className="section-heading">
-                  <h2>Latest reading</h2>
-                  <span className="badge">
-                    Expiry A: {formatDate(series.expiry_a)}
-                  </span>
-                </div>
-                <p className="section-description">
-                  Observation: {formatDate(latest.trade_date)}.
+          <section
+            className="ui-card cmp-summary"
+            aria-label="Comparison result summary"
+          >
+            <div className="cmp-summary-head">
+              <div>
+                <h2>{pairLabel(pair)}</h2>
+                <p className="ui-muted-note">
+                  Contracts expiring {longDate(series.expiry_a)} · as of{' '}
+                  {longDate(latest.trade_date)}
                 </p>
-                {goldm && (
-                  <p className="quality-notice">
-                    Analytics only · synthetic maturity matching, not executable
-                    prices.
-                  </p>
-                )}
-                <details>
-                  <summary>Eligibility details</summary>
+              </div>
+              {!building && <GapChip z={latest.z} />}
+            </div>
+            {typeof gap === 'number' && Number.isFinite(gap) && (
+              <p className="ui-summary-line">
+                {a} is <strong>{inr(Math.abs(gap))}</strong>{' '}
+                {gap >= 0 ? 'more expensive' : 'cheaper'} than {b} per 10 g
+                {level.phrase ? ` — ${level.phrase}.` : '.'}
+              </p>
+            )}
+            <div className="cmp-summary-body">
+              <div className="ui-grid-3">
+                <Stat label={a} value={inr(latest.a_p10_999)} hint="per 10 g" />
+                <Stat label={b} value={inr(latest.b_p10_999)} hint="per 10 g" />
+                <Stat
+                  label="Gap"
+                  value={signedInr(latest.spread_abs)}
+                  hint={`${signedPct(latest.spread_pct)} of price`}
+                />
+              </div>
+              {building ? (
+                <div className="ov-hero-unlock">
+                  <Ring
+                    value={(sessions ?? 0) / MIN_SESSIONS}
+                    size={130}
+                    stroke={11}
+                    color="#5E97D0"
+                    center={
+                      <span className="history-gate-count">
+                        <strong>{sessions ?? 0}</strong>
+                        <small>/ {MIN_SESSIONS}</small>
+                      </span>
+                    }
+                  />
                   <p>
-                    Source trade flag:{' '}
-                    {latest.source_tradable ? 'Passed' : 'Failed'}.
+                    <strong>Is it unusual?</strong>
+                    <span>Unlocks at {MIN_SESSIONS} sessions.</span>
                   </p>
-                  <p>
-                    executable_pair={String(latest.executable_pair)};
-                    comparison_type={latest.comparison_type}
-                  </p>
-                </details>
-                <div className="rv-readings">
-                  {[
-                    [
-                      `${a} normalized A`,
-                      latest.a_p10_999,
-                      data.units.prices,
-                      true,
-                    ],
-                    [
-                      `${b} normalized B`,
-                      latest.b_p10_999,
-                      data.units.prices,
-                      true,
-                    ],
-                    [
-                      'Spread A minus B',
-                      latest.spread_abs,
-                      data.units.spread_abs,
-                      true,
-                    ],
-                    [
-                      'Spread percentage',
-                      latest.spread_pct,
-                      data.units.spread_pct,
-                      false,
-                    ],
-                    [
-                      'Rolling mean',
-                      latest.roll_mean,
-                      data.units.roll_mean,
-                      false,
-                    ],
-                    [
-                      'Rolling standard deviation',
-                      latest.roll_std,
-                      data.units.roll_std,
-                      false,
-                    ],
-                    ['Z-score', latest.z, data.units.z, false],
-                    [
-                      'Percentile',
-                      latest.percentile,
-                      data.units.percentile,
-                      false,
-                    ],
-                  ].map(([label, value, unit, money]) => (
-                    <div className="rv-reading" key={String(label)}>
-                      <span>{String(label)}</span>
-                      <strong>
-                        {reading(value as number | null, Boolean(money))}
-                      </strong>
-                      <small>{String(unit)}</small>
-                    </div>
-                  ))}
                 </div>
-                <details>
-                  <summary>Source eligibility details</summary>
-                  <p>
-                    Source trade flag:{' '}
-                    {latest.source_tradable ? 'Passed' : 'Failed'}.
-                  </p>
-                </details>
-                <details>
-                  <summary>Maturity calculation details</summary>
-                  <p>{data.maturity_definition}</p>
-                </details>
-              </section>
-              <Suspense
-                fallback={
-                  <div className="panel" role="status">
-                    Loading charts...
-                  </div>
-                }
-              >
-                <SpreadCharts series={series} />
-              </Suspense>
-              <section className="panel">
-                <h2>Observation quality</h2>
-                <div
-                  className="table-scroll"
-                  tabIndex={0}
-                  role="region"
-                  aria-label="Observation quality and historical chart values"
-                >
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Date</th>
-                        <th>Liquidity check</th>
-                        <th>Source trade flag</th>
-                        <th>Reasons</th>
-                        <th>Chart values</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {series.rows.map((row) => (
-                        <tr key={row.trade_date}>
-                          <td>{formatDate(row.trade_date)}</td>
-                          <td>{row.liquidity_ok ? 'Passed' : 'Failed'}</td>
-                          <td>{row.source_tradable ? 'Passed' : 'Failed'}</td>
-                          <td className="rv-reasons">
-                            {[row.reason, row.liquidity_reason]
-                              .filter(Boolean)
-                              .join(' | ') || 'No reason provided'}
-                          </td>
-                          <td>
-                            <details>
-                              <summary>View chart values</summary>
-                              <dl>
-                                {[
-                                  [
-                                    'Spread (Rs per 10 g)',
-                                    reading(row.spread_abs, true),
-                                  ],
-                                  ['Spread (% of B)', reading(row.spread_pct)],
-                                  [
-                                    'Rolling mean (% of B)',
-                                    reading(row.roll_mean),
-                                  ],
-                                  [
-                                    'Rolling standard deviation (percentage points)',
-                                    reading(row.roll_std),
-                                  ],
-                                  ['Z-score', reading(row.z)],
-                                ].map(([label, value]) => (
-                                  <div key={label}>
-                                    <dt>{label}</dt>
-                                    <dd>{value}</dd>
-                                  </div>
-                                ))}
-                              </dl>
-                            </details>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </section>
+              ) : (
+                <ZGauge
+                  z={latest.z}
+                  size={260}
+                  caption={rankText(
+                    latest.percentile,
+                    Math.max(1, Math.min(window, (sessions ?? window + 1) - 1)),
+                  )}
+                />
+              )}
+            </div>
+            {goldm && (
+              <p className="ui-muted-note">
+                GOLDM expires on different dates, so the other product is{' '}
+                {actualCarry
+                  ? 'interpolated to the same maturity'
+                  : 'compared without maturity matching'}
+                {!comparison.loading && change !== null
+                  ? ` (matching changes the gap by ${signedInr(change)})`
+                  : ''}
+                . For analysis only — not a tradable pair.
+              </p>
+            )}
+            {(latest.reason || latest.liquidity_reason) && (
+              <p className="ui-muted-note">
+                Note:{' '}
+                <DiagnosticLabel
+                  code={latest.reason || latest.liquidity_reason}
+                />
+              </p>
+            )}
+          </section>
+          {building && sessions !== null ? (
+            <HistoryGate sessions={sessions} title="Gap over time">
+              The chart of this gap against its usual range needs at least{' '}
+              {MIN_SESSIONS} trading days. Meanwhile, “Across expiries” works
+              with a single day.
+            </HistoryGate>
+          ) : (
+            <Suspense fallback={<Skeleton height={340} />}>
+              <SpreadCharts series={series} />
+            </Suspense>
+          )}
+        </>
+      ) : data && !series ? (
+        <div className="ui-card empty-state">
+          {data.message ?? 'No data for this pair and expiry yet.'}
+        </div>
+      ) : null}
+
+      <HowItWorks>
+        <p>
+          Each product is converted to ₹ per 10 g from its quoted size
+          {config?.use_purity_adjustment
+            ? ', then adjusted for purity (experimental)'
+            : ''}
+          . The gap is {a} minus {b}. “vs usual” compares today with the
+          previous {window} sessions of the same contracts. Prices are
+          historical settlements, not executable quotes.
+          {data && (
+            <>
+              {' '}
+              Data window: {shortDate(data.data_window.first_trade_date)} –{' '}
+              {longDate(data.data_window.last_trade_date)}
+              {meta.response?.data.trading_session_count
+                ? ` (${meta.response.data.trading_session_count} sessions)`
+                : ''}
+              .
             </>
           )}
-          <details className="panel">
-            <summary>Technical assumptions</summary>
+        </p>
+        <ComparisonExplanation
+          resource={resource}
+          row={latest}
+          counterpart={comparison}
+          counterpartRow={other}
+        />
+        {data && (
+          <>
+            <h3>Assumptions</h3>
             <ul>
               {data.assumptions.map((note) => (
                 <li key={note}>{note}</li>
               ))}
             </ul>
+            {goldm && <p>{data.maturity_definition}</p>}
+          </>
+        )}
+        {series && (
+          <details className="cmp-quality">
+            <summary>
+              Daily data quality ({series.rows.length} sessions)
+            </summary>
+            <div className="ui-table-scroll">
+              <table className="ui-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th className="num">Gap</th>
+                    <th className="num">vs usual</th>
+                    <th>Liquidity</th>
+                    <th>Notes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[...series.rows].reverse().map((row) => (
+                    <tr key={row.trade_date}>
+                      <td>{longDate(row.trade_date)}</td>
+                      <td className="num">{signedInr(row.spread_abs)}</td>
+                      <td className="num">{num(row.z)}</td>
+                      <td>{row.liquidity_ok ? 'OK' : 'Thin'}</td>
+                      <td className="cmp-notes">
+                        {[row.reason, row.liquidity_reason]
+                          .filter(Boolean)
+                          .join(' · ')
+                          .replaceAll('_', ' ')}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </details>
-        </>
-      )}
+        )}
+      </HowItWorks>
     </div>
   )
 }

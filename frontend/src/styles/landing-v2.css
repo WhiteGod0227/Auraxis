@@ -1,0 +1,135 @@
+.lp .landing-section {
+  max-width: 1180px;
+  margin-inline: auto;
+}
+.lp-preview {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface);
+}
+.lp-preview-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px 16px;
+}
+.lp-preview-head h2 {
+  font-size: 15px;
+}
+.lp-preview-head span {
+  color: var(--text-3);
+  font-size: 12.5px;
+}
+.lp-preview .chart-container {
+  height: 280px;
+  margin: 0;
+}
+.lp-preview-empty {
+  display: grid;
+  place-items: center;
+  gap: 12px;
+  min-height: 240px;
+  color: var(--text-2);
+  text-align: center;
+}
+.lp-section-title {
+  margin-bottom: 24px;
+  font-size: 28px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+.lp-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.lp-steps li {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+}
+.lp-steps h3 {
+  font-size: 16px;
+}
+.lp-steps p,
+.lp-feature p,
+.lp-closing p {
+  color: var(--text-2);
+  font-size: 14px;
+  line-height: 1.6;
+}
+.lp-step-num {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--gold-soft);
+  color: var(--gold);
+  font-weight: 600;
+}
+.lp-features {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+.lp-feature {
+  display: grid;
+  gap: 6px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  transition: border-color 0.15s,
+    transform 0.15s;
+}
+.lp-feature:hover {
+  border-color: rgb(var(--ink-rgb) / 40%);
+  transform: translateY(-2px);
+}
+.lp-feature h3 {
+  font-size: 15px;
+}
+.lp-feature h3 span {
+  color: var(--gold);
+}
+.lp-closing {
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  text-align: center;
+}
+.lp-closing h2 {
+  font-size: 28px;
+}
+.lp-closing p {
+  max-width: 560px;
+}
+@media (max-width: 960px) {
+  .lp-steps,
+  .lp-features {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
+@media (max-width: 600px) {
+  .lp-steps,
+  .lp-features {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .lp-section-title,
+  .lp-closing h2 {
+    font-size: 22px;
+  }
+}

@@ -1,3 +1,6 @@
+import asyncio
+from contextlib import asynccontextmanager, suppress
+
 from fastapi import FastAPI
 from fastapi.exception_handlers import request_validation_exception_handler
 from fastapi.exceptions import RequestValidationError
@@ -8,23 +11,44 @@ from app.api.alerts import router as alerts_router
 from app.api.analytics import router as analytics_router
 from app.api.auth import router as auth_router
 from app.api.coverage import router as coverage_router
+from app.api.data_refresh import auto_refresh_loop
+from app.api.data_refresh import router as data_router
 from app.api.foundation import router as foundation_router
 from app.api.health import router as health_router
 from app.api.security import router as security_router
 from app.api.workspaces import router as workspace_router
 from app.core.config import get_settings
 from app.core.logging import setup_logging
+from app.data.watcher import watch_loop
 
 setup_logging()
 settings = get_settings()
 
-app = FastAPI(title=settings.app_name)
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    tasks = []
+    if settings.upstox_access_token.strip() and settings.auto_refresh_hours > 0:
+        tasks.append(asyncio.create_task(auto_refresh_loop(settings)))
+    if settings.bhavcopy_watch:
+        tasks.append(asyncio.create_task(watch_loop(settings)))
+    try:
+        yield
+    finally:
+        for task in tasks:
+            task.cancel()
+            with suppress(asyncio.CancelledError):
+                await task
+
+
+app = FastAPI(title=settings.app_name, lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-Auth-Step"],
 )
 app.include_router(health_router)
 app.include_router(foundation_router)
@@ -34,6 +58,7 @@ app.include_router(coverage_router)
 app.include_router(workspace_router)
 app.include_router(alerts_router)
 app.include_router(security_router)
+app.include_router(data_router)
 
 
 @app.middleware("http")

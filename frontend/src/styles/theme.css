@@ -1,0 +1,237 @@
+/* Auraxis themes. Dark ("graphite") is the default; light is "paper & graphite".
+   Every neutral colour in the app resolves through these tokens, so the two
+   themes stay in step. Product colours are shared by both themes (validated
+   on #151518 and #FFFFFF). Loaded last. */
+:root {
+  color-scheme: dark;
+  /* Ink: the colour overlays and hairlines are mixed from (rgb triplet). */
+  --ink-rgb: 255 255 255;
+  --bg: #0a0a0b;
+  --panel: #121214;
+  --panel-2: #161618;
+  --panel-3: #1e1e21;
+  --line: rgb(255 255 255 / 6.5%);
+  --line-strong: rgb(255 255 255 / 11%);
+  --text-strong: #ffffff;
+  --text: #ececee;
+  --text-2: #a9a9b0;
+  --text-3: #74747c;
+  --muted-fill: #9c9ca0;
+  /* Solid "accent" surfaces (primary buttons, knobs) and the text on them. */
+  --accent-fill: #ececee;
+  --accent-fill-hover: #ffffff;
+  --on-accent: #0a0a0b;
+  --silver: linear-gradient(180deg, #ffffff 0%, #d9d9de 45%, #8e8e96 100%);
+  --silver-muted: linear-gradient(180deg, #8e8e96, #4a4a50);
+  --grid: rgb(255 255 255 / 6%);
+  --axis: #7d7d85;
+  --tooltip-bg: rgb(24 24 28 / 94%);
+  --tooltip-border: rgb(255 255 255 / 14%);
+  --shadow: rgb(0 0 0 / 45%);
+  --glass-top: rgb(255 255 255 / 9%);
+  --glass-bottom: rgb(255 255 255 / 2.5%);
+  --drawer-bg: linear-gradient(
+    180deg,
+    rgb(32 32 36 / 96%),
+    rgb(16 16 18 / 96%)
+  );
+  --crow-body: #121214;
+  --crow-line: #e9e9ee;
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+  --ink-rgb: 20 20 24;
+  --bg: #f6f6f4;
+  --panel: #ffffff;
+  --panel-2: #fafaf8;
+  --panel-3: #f0f0ed;
+  --line: rgb(20 20 24 / 9%);
+  --line-strong: rgb(20 20 24 / 15%);
+  --text-strong: #0f0f11;
+  --text: #1b1b1e;
+  --text-2: #55555c;
+  --text-3: #85858c;
+  --muted-fill: #b4b4b8;
+  --accent-fill: #1b1b1e;
+  --accent-fill-hover: #000000;
+  --on-accent: #ffffff;
+  --silver: linear-gradient(180deg, #1b1b1e 0%, #3a3a40 55%, #6b6b72 100%);
+  --silver-muted: linear-gradient(180deg, #8a8a91, #b4b4ba);
+  --grid: rgb(20 20 24 / 7%);
+  --axis: #85858c;
+  --tooltip-bg: rgb(255 255 255 / 97%);
+  --tooltip-border: rgb(20 20 24 / 12%);
+  --shadow: rgb(20 20 24 / 10%);
+  --glass-top: rgb(255 255 255 / 80%);
+  --glass-bottom: rgb(255 255 255 / 55%);
+  --drawer-bg: linear-gradient(
+    180deg,
+    rgb(255 255 255 / 98%),
+    rgb(246 246 244 / 98%)
+  );
+  --crow-body: #1b1b1e;
+  --crow-line: #f2f2f0;
+}
+
+html,
+body {
+  background: var(--bg);
+  color: var(--text);
+}
+/* Smooth switch between themes (not on first paint). */
+:root.theme-anim,
+:root.theme-anim * {
+  transition:
+    background-color 0.35s ease,
+    border-color 0.35s ease,
+    color 0.35s ease,
+    fill 0.35s ease,
+    stroke 0.35s ease !important;
+}
+
+/* Light-mode refinements that tokens alone can't express. */
+:root[data-theme='light'] .backdrop {
+  opacity: 0.18;
+}
+:root[data-theme='light'] .ui-card,
+:root[data-theme='light'] .ov-product,
+:root[data-theme='light'] .panel,
+:root[data-theme='light'] .ui-how {
+  box-shadow:
+    0 1px 2px rgb(20 20 24 / 4%),
+    0 6px 24px rgb(20 20 24 / 4%);
+}
+:root[data-theme='light'] .g-side,
+:root[data-theme='light'] .g-topbar,
+:root[data-theme='light'] .g-nav {
+  border-color: rgb(20 20 24 / 10%);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 90%),
+    0 10px 30px rgb(20 20 24 / 8%);
+}
+:root[data-theme='light'] .g-side::before,
+:root[data-theme='light'] .g-nav::before {
+  opacity: 0.25;
+}
+:root[data-theme='light'] .crow {
+  filter: drop-shadow(0 8px 18px rgb(20 20 24 / 18%));
+}
+
+/* Recharts: grid, axes and tooltips follow the theme. CSS beats the
+   presentation attributes Recharts writes. */
+.recharts-cartesian-grid line {
+  stroke: var(--grid);
+}
+.recharts-cartesian-axis-tick-value,
+.recharts-cartesian-axis-tick text,
+.recharts-label {
+  fill: var(--axis);
+}
+.recharts-legend-item-text {
+  color: var(--text-2) !important;
+}
+.recharts-default-tooltip {
+  background: var(--tooltip-bg) !important;
+  border-color: var(--tooltip-border) !important;
+  color: var(--text) !important;
+}
+.recharts-tooltip-item,
+.recharts-tooltip-label {
+  color: var(--text) !important;
+}
+
+/* ---------- Theme toggle ---------- */
+.theme-toggle {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  background: rgb(var(--ink-rgb) / 4%);
+  color: var(--text-2);
+  cursor: pointer;
+  transition:
+    color 0.3s,
+    background 0.3s,
+    transform 0.5s var(--ease);
+}
+.theme-toggle:hover {
+  background: rgb(var(--ink-rgb) / 9%);
+  color: var(--text-strong);
+}
+.theme-toggle:active {
+  transform: rotate(-25deg) scale(0.94);
+}
+.theme-toggle svg {
+  transition: transform 0.6s var(--ease);
+}
+:root[data-theme='light'] .theme-toggle svg {
+  transform: rotate(180deg);
+}
+
+/* Translucent glass panels (nav, drawer, tooltips). */
+:root {
+  --glass-rgb: 22 22 25;
+  --glass-hi-rgb: 40 40 44;
+}
+:root[data-theme='light'] {
+  --glass-rgb: 255 255 255;
+  --glass-hi-rgb: 255 255 255;
+}
+
+/* Sidebar footer: status pill + theme toggle on one row. */
+.g-side-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.g-side-row .g-status {
+  flex: 1;
+  min-width: 0;
+}
+@media (min-width: 981px) {
+  .g-side.collapsed .g-side-row {
+    flex-direction: column;
+  }
+}
+
+/* Account avatar: readable initials in both themes. */
+.account-avatar {
+  background: var(--panel-3) !important;
+  border-color: var(--line-strong) !important;
+  color: var(--text-strong) !important;
+}
+
+/* Primary buttons drawn with the silver gradient. */
+:root {
+  --silver-btn: linear-gradient(180deg, #ffffff, #c9c9cf);
+}
+:root[data-theme='light'] {
+  --silver-btn: linear-gradient(180deg, #2c2c31, #141416);
+}
+
+/* Login card in light mode: white card, light inputs, soft shadow. */
+:root[data-theme='light'] .auth-form .form_front,
+:root[data-theme='light'] .auth-form .form_back {
+  background: var(--panel);
+  border-color: var(--line);
+  box-shadow:
+    0 1px 2px rgb(20 20 24 / 5%),
+    0 24px 60px rgb(20 20 24 / 10%);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+:root[data-theme='light'] .auth-form .input {
+  background: var(--panel-2) !important;
+  border-color: var(--line-strong) !important;
+}
+/* Footer row: account menu takes the space, toggles sit to its right. */
+.g-side-row .account-menu {
+  flex: 1;
+  min-width: 0;
+}

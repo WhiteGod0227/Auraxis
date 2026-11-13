@@ -1,0 +1,92 @@
+/* ---------- Crow mouse pointer ---------- */
+/* Hide the system pointer while the crow is active (text fields keep theirs). */
+html.crow-cursor-on,
+html.crow-cursor-on * {
+  cursor: none !important;
+}
+html.crow-cursor-on.crow-cursor-text *,
+html.crow-cursor-on textarea,
+html.crow-cursor-on [contenteditable='true'] {
+  cursor: text !important;
+}
+
+.crow-cursor {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 2147483647;
+  pointer-events: none;
+  will-change: transform;
+  transition: opacity 0.18s;
+}
+.crow-cursor.is-hidden,
+.crow-cursor.is-text {
+  opacity: 0;
+}
+/* Press / point feedback scales around the beak tip, so the hotspot never moves. */
+.crow-cursor-press {
+  width: 100%;
+  height: 100%;
+  transform-origin: var(--tip-x) var(--tip-y);
+  transition: transform 0.16s cubic-bezier(0.3, 0.7, 0.4, 1.4);
+}
+.crow-cursor.is-pointing .crow-cursor-press {
+  transform: scale(1.14);
+}
+.crow-cursor.is-pressed .crow-cursor-press {
+  transform: scale(0.86);
+  transition-duration: 0.08s;
+}
+.crow-cursor.is-pointing.is-pressed .crow-cursor-press {
+  transform: scale(1);
+}
+/* Mirror, then turn: beak points up-left like an arrow. */
+.crow-cursor-pose {
+  width: 100%;
+  height: 100%;
+  transform: rotate(var(--pose)) scaleX(-1);
+  transform-origin: 50% 50%;
+}
+
+/* The crow itself: compact shadow, no halo, head held still. */
+.crow-cursor .crow {
+  filter: drop-shadow(0 2px 3px rgb(0 0 0 / 45%));
+}
+:root[data-theme='light'] .crow-cursor .crow {
+  filter: drop-shadow(0 2px 3px rgb(20 20 24 / 30%));
+}
+.crow-cursor .crow-halo,
+.crow-cursor .crow-legs,
+.crow-cursor .crow-monocle {
+  display: none !important;
+}
+.crow-cursor .crow .crow-bird,
+.crow-cursor .crow .crow-head {
+  animation: none !important;
+}
+.crow-cursor .crow-pupil {
+  transition: transform 0.12s ease-out;
+}
+/* Pointing at something clickable: the monocle comes out. */
+.crow-cursor.is-pointing .crow-monocle {
+  display: inline !important;
+}
+/* Moving fast: the wing flaps. */
+.crow-cursor.is-moving .crow-wing {
+  animation: crow-flap 0.26s ease-in-out infinite !important;
+}
+/* Idle: the eye drowses shut. */
+.crow-cursor.is-idle .crow-eye {
+  animation: none !important;
+  transform: scaleY(0.15);
+  transition: transform 0.6s ease;
+}
+@media (forced-colors: active) {
+  .crow-cursor {
+    display: none;
+  }
+  html.crow-cursor-on,
+  html.crow-cursor-on * {
+    cursor: auto !important;
+  }
+}

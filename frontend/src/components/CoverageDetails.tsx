@@ -95,9 +95,8 @@ export default function CoverageDetails({
           exchange-holiday classification.
         </p>
       )}
-      <p>
-        Expected contract coverage unavailable. Diagnostic categories overlap;
-        do not add them into a unique affected-row total.
+      <p className="ui-muted-note">
+        Expected contract coverage unavailable · categories can overlap.
       </p>
       {!!day.products.length && (
         <div
@@ -129,7 +128,7 @@ export default function CoverageDetails({
         </div>
       )}
       {!!day.observations.length && (
-        <details open>
+        <details>
           <summary>
             Observed products and actual expiries ({day.observations.length})
           </summary>

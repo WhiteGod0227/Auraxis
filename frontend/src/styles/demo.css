@@ -39,9 +39,9 @@
   font-size: 11px;
 }
 .demo-steps button[aria-current='step'] {
-  color: #fff;
-  background: linear-gradient(130deg, #eec77c16, #ffffff05);
-  border-color: #eec77c55;
+  color: var(--text-strong);
+  background: linear-gradient(130deg, #b5b5b916, #ffffff05);
+  border-color: #b5b5b955;
   box-shadow: inset 0 1px #ffffff12;
 }
 .demo-context {
@@ -65,8 +65,8 @@
 .demo-context select {
   min-height: 44px;
   padding: 8px 12px;
-  background: #111722;
-  color: #eef2fa;
+  background: var(--panel-2);
+  color: var(--text-strong);
   border: 1px solid #ffffff26;
   border-radius: 10px;
   font: inherit;

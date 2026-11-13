@@ -178,7 +178,6 @@ export function CalendarPage() {
               )
             )}
             <CoverageCountList counts={data.counts} />
-            <p>Expected exchange coverage unavailable.</p>
             <details>
               <summary>Count definitions and limitations</summary>
               <dl>
@@ -200,10 +199,17 @@ export function CalendarPage() {
             className="panel coverage-month"
             aria-label="Monthly observed coverage"
           >
-            <h2>{month}</h2>
-            <p>
-              Not loaded = no observations for this filter. Select a date for
-              details.
+            <h2>
+              {month
+                ? new Date(`${month}-01T00:00:00`).toLocaleDateString('en-IN', {
+                    month: 'long',
+                    year: 'numeric',
+                  })
+                : ''}
+            </h2>
+            <p className="ui-muted-note">
+              Click a day for details. A dot marks days with no-trade or
+              thin-volume contracts.
             </p>
             <CoverageCalendar
               days={data.days}

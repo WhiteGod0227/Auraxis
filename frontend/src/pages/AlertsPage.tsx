@@ -15,6 +15,9 @@ import { formatDate, number } from '@/lib/format'
 import SourceBadge from '@/components/SourceBadge'
 import AccountAlerts from '@/components/AccountAlerts'
 import '@/styles/alerts.css'
+import { PageHeader } from '@/components/ui'
+import { pairLabel } from '@/lib/insight'
+import { MIN_SESSIONS, useBuildingHistory } from '@/lib/history'
 
 type PairResult = {
   pair: string
@@ -35,6 +38,7 @@ function initialRules() {
   }
 }
 export function AlertsPage() {
+  const { building } = useBuildingHistory()
   const [stored, setStored] = useState(initialRules)
   const [pair, setPair] = useState<string>(alertPairs[0])
   const [metric, setMetric] = useState<AlertRule['metric']>('abs_z')
@@ -83,24 +87,15 @@ export function AlertsPage() {
   }
   return (
     <div className="alerts-page">
-      <div className="page-heading">
-        <p className="eyebrow">RESEARCH WORKSPACE</p>
-        <h1>Alerts</h1>
-        <p className="section-description">
-          Watch historical comparisons against your own thresholds.
-        </p>
-      </div>
-      <p className="context-note">
-        Evaluated when this page opens or you refresh results. Historical data,
-        not live prices or background notifications. Rules are saved in this
-        browser, shared by its users, and are separate from your account.
-      </p>
+      <PageHeader
+        title="Alerts"
+        subtitle="Set a level for any pair. Each time you open this page, Auraxis checks the latest data and flags the pairs that crossed it."
+      />
       {stored.warning && (
         <p className="notice" role="status">
           {stored.warning}
         </p>
       )}
-      <AccountAlerts browserRules={stored.rules} apply={update} />
       <form
         className="panel alert-form"
         onSubmit={(event) => {
@@ -137,24 +132,26 @@ export function AlertsPage() {
           update([...stored.rules, rule], 'Rule added.')
         }}
       >
-        <h2>Create a research alert</h2>
+        <h2>New alert</h2>
         <div className="alert-controls">
           <label>
             Pair
             <select value={pair} onChange={(e) => setPair(e.target.value)}>
               {alertPairs.map((pair) => (
-                <option key={pair}>{pair}</option>
+                <option key={pair} value={pair}>
+                  {pairLabel(pair)}
+                </option>
               ))}
             </select>
           </label>
           <label>
-            Measure
+            Watch
             <select
               value={metric}
               onChange={(e) => setMetric(e.target.value as AlertRule['metric'])}
             >
-              <option value="abs_z">Absolute z-score</option>
-              <option value="abs_spread_pct">Absolute spread (% of B)</option>
+              <option value="abs_z">How unusual the gap is (σ)</option>
+              <option value="abs_spread_pct">Gap size (% of price)</option>
             </select>
           </label>
           <label>
@@ -170,22 +167,23 @@ export function AlertsPage() {
             />
           </label>
           <label>
-            Expiry (optional)
+            Contract (optional)
             <input
               type="date"
               value={expiry}
               onChange={(e) => setExpiry(e.target.value)}
             />
-            <small>Blank uses the latest eligible contract.</small>
+            <small>Leave blank for the nearest contract.</small>
           </label>
         </div>
-        <p className="context-note">
-          Purity off; 10-session statistics, minimum 5 observations, 2,000 g
-          volume filter. GOLDM uses analytical maturity matching. Thresholds use
-          magnitude, including negative observations.
+        <p className="ui-muted-note">
+          Works in both directions: a gap of −2σ meets a 2σ level.
+          {building && metric === 'abs_z'
+            ? ` “How unusual” needs ${MIN_SESSIONS} trading days of data; gap size works now.`
+            : ''}
         </p>
         <button
-          className="landing-cta"
+          className="ui-button primary"
           type="submit"
           disabled={stored.rules.length >= 20}
         >
@@ -196,21 +194,21 @@ export function AlertsPage() {
         </p>
       </form>
       <div className="section-heading">
-        <h2>Your rules ({stored.rules.length}/20)</h2>
+        <h2>Your alerts ({stored.rules.length}/20)</h2>
         <button
           className="button"
           onClick={resource.retry}
           disabled={resource.loading || !stored.rules.length}
         >
-          {resource.loading ? 'Checking...' : 'Refresh results'}
+          {resource.loading ? 'Checking…' : 'Check now'}
         </button>
       </div>
       {!stored.rules.length && (
         <section className="panel alert-empty">
           <h2>No alerts yet</h2>
           <p>
-            Add a threshold above to evaluate a historical comparison. No
-            browser notification permission is needed.
+            Pick a pair and a level above. Alerts are checked in the app — no
+            emails or browser notifications.
           </p>
         </section>
       )}
@@ -220,14 +218,11 @@ export function AlertsPage() {
             (r) => r.pair === rule.pair,
           )
           const evaluation = evaluateAlert(rule, result?.response?.data)
-          const label =
-            rule.metric === 'abs_z'
-              ? 'absolute z-score'
-              : 'absolute spread (% of B)'
+          const label = rule.metric === 'abs_z' ? 'How unusual' : 'Gap size'
           return (
             <article className="panel alert-card" key={rule.id}>
               <div className="section-heading">
-                <h3>{rule.pair}</h3>
+                <h3>{pairLabel(rule.pair)}</h3>
                 <span
                   className={`alert-status ${resource.loading || result?.error ? 'unavailable' : evaluation.status}`}
                 >
@@ -244,10 +239,8 @@ export function AlertsPage() {
               </div>
               <p>
                 {label} &ge; {number.format(rule.threshold)}
-                {rule.metric === 'abs_spread_pct' ? '%' : ''} ·{' '}
-                {rule.expiry
-                  ? formatDate(rule.expiry)
-                  : 'Latest eligible expiry'}
+                {rule.metric === 'abs_spread_pct' ? '%' : 'σ'} ·{' '}
+                {rule.expiry ? formatDate(rule.expiry) : 'Nearest contract'}
               </p>
               {!resource.loading && result?.response && (
                 <div className="alert-source">
@@ -269,8 +262,8 @@ export function AlertsPage() {
                       {number.format(evaluation.value)}
                       {rule.metric === 'abs_spread_pct' ? '%' : ''}
                       <small>
-                        Signed observation · {formatDate(evaluation.date)} ·
-                        expiry {formatDate(evaluation.expiry)}
+                        Latest reading · {formatDate(evaluation.date)} · expiry{' '}
+                        {formatDate(evaluation.expiry)}
                       </small>
                     </p>
                   )}
@@ -283,7 +276,7 @@ export function AlertsPage() {
                 </>
               )}
               <div className="alert-actions">
-                <Link to="/app/relative-value">Explore comparisons</Link>
+                <Link to="/app/relative-value">Open in Compare</Link>
                 <button
                   className="button"
                   onClick={() =>
@@ -293,13 +286,19 @@ export function AlertsPage() {
                     )
                   }
                 >
-                  Remove rule
+                  Remove
                 </button>
               </div>
             </article>
           )
         })}
       </div>
+      <details className="ui-how">
+        <summary>Use these alerts on another device</summary>
+        <div className="ui-how-body">
+          <AccountAlerts browserRules={stored.rules} apply={update} />
+        </div>
+      </details>
     </div>
   )
 }

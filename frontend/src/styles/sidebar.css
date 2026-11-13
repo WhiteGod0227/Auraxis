@@ -1,0 +1,406 @@
+/* ---------- Left liquid-glass sidebar (app shell) ---------- */
+:root {
+  --side-w: 248px;
+  --side-gap: 14px;
+}
+.shell:has(.g-side.collapsed) {
+  --side-w: 76px;
+}
+.g-side {
+  position: fixed;
+  top: var(--side-gap);
+  bottom: var(--side-gap);
+  left: var(--side-gap);
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  width: var(--side-w);
+  padding: 14px 10px 10px;
+  border: 1px solid rgb(var(--ink-rgb) / 12%);
+  border-radius: 26px;
+  background: linear-gradient(
+    180deg,
+    rgb(var(--ink-rgb) / 9%),
+    rgb(var(--ink-rgb) / 2.5%) 40%,
+    rgb(var(--ink-rgb) / 4%)
+  );
+  -webkit-backdrop-filter: blur(22px) saturate(170%);
+  backdrop-filter: blur(22px) saturate(170%);
+  box-shadow:
+    inset 0 1px 0 rgb(var(--ink-rgb) / 24%),
+    inset 1px 0 0 rgb(var(--ink-rgb) / 5%),
+    0 18px 50px rgb(0 0 0 / 45%);
+  transition:
+    width 0.5s var(--ease),
+    transform 0.5s var(--ease);
+  animation: g-side-in 0.9s var(--ease) both;
+}
+.g-side::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(
+    160deg,
+    rgb(var(--ink-rgb) / 14%) 0%,
+    transparent 22%,
+    transparent 80%,
+    rgb(var(--ink-rgb) / 6%) 100%
+  );
+  mix-blend-mode: screen;
+}
+@keyframes g-side-in {
+  from {
+    opacity: 0;
+    transform: translateX(-18px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.g-side-head {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 4px 0 8px;
+}
+.g-side-head .g-brand {
+  margin-right: 0;
+  overflow: hidden;
+}
+.g-collapse {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: rgb(var(--ink-rgb) / 4%);
+  color: var(--text-2);
+  cursor: pointer;
+  transition:
+    color 0.3s,
+    background 0.3s,
+    transform 0.5s var(--ease);
+}
+.g-collapse:hover {
+  background: rgb(var(--ink-rgb) / 10%);
+  color: var(--text-strong);
+}
+.g-side.collapsed .g-collapse {
+  transform: rotate(180deg);
+}
+.g-side-nav {
+  position: relative;
+  flex: 1;
+  margin-top: 14px;
+  overflow: hidden auto;
+  scrollbar-width: none;
+}
+.g-side-group + .g-side-group {
+  margin-top: 18px;
+}
+.g-side-title {
+  margin: 0 0 6px;
+  padding: 0 12px;
+  color: var(--text-3);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  transition: opacity 0.3s;
+}
+.g-side-nav a {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 42px;
+  margin: 2px 0;
+  padding: 0 13px;
+  border-radius: 14px;
+  color: var(--text-2);
+  font-size: 13.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: color 0.3s;
+}
+.g-side-nav a svg {
+  flex: none;
+  opacity: 0.8;
+  transition: opacity 0.3s;
+}
+.g-side-nav a:hover,
+.g-side-nav a.active {
+  color: var(--text-strong);
+}
+.g-side-nav a:hover svg,
+.g-side-nav a.active svg {
+  opacity: 1;
+}
+.g-side-nav a.active::before {
+  content: '';
+  position: absolute;
+  top: 12px;
+  bottom: 12px;
+  left: 0;
+  width: 3px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, var(--accent-fill), var(--muted-fill));
+  box-shadow: 0 0 12px rgb(var(--ink-rgb) / 45%);
+}
+.g-side-pill {
+  position: absolute;
+  right: 0;
+  left: 0;
+  z-index: 0;
+  border-radius: 14px;
+  background: linear-gradient(
+    180deg,
+    rgb(var(--ink-rgb) / 12%),
+    rgb(var(--ink-rgb) / 5%)
+  );
+  box-shadow:
+    inset 0 1px 0 rgb(var(--ink-rgb) / 20%),
+    0 6px 18px rgb(0 0 0 / 25%);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    top 0.45s var(--ease),
+    height 0.45s var(--ease),
+    opacity 0.3s;
+}
+.g-side-foot {
+  position: relative;
+  display: grid;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+.g-side-foot .g-status {
+  justify-content: flex-start;
+  overflow: hidden;
+}
+.g-side-foot .g-status button {
+  margin-left: auto;
+}
+.g-side-foot .account-menu {
+  min-width: 0;
+}
+.g-side-foot .account-dropdown > summary {
+  border-radius: 14px;
+}
+.g-side .account-panel {
+  border-radius: 16px;
+  background: linear-gradient(180deg, var(--panel-3), var(--panel-2));
+}
+.g-side .account-avatar {
+  color: var(--text-strong);
+  background: linear-gradient(180deg, var(--muted-fill), var(--panel-3));
+}
+
+/* Collapsed rail: icons only (desktop). */
+@media (min-width: 981px) {
+  .g-side.collapsed .g-brand b,
+  .g-side.collapsed .g-side-nav a span,
+  .g-side.collapsed .g-status span,
+  .g-side.collapsed .g-status button,
+  .g-side.collapsed .account-name,
+  .g-side.collapsed .account-caret {
+    display: none;
+  }
+  .g-side.collapsed .g-side-title {
+    height: 6px;
+    overflow: hidden;
+    opacity: 0;
+  }
+  .g-side.collapsed .g-side-head {
+    flex-direction: column;
+    padding: 0;
+  }
+  .g-side.collapsed .g-side-nav a {
+    justify-content: center;
+    padding: 0;
+  }
+  .g-side.collapsed .g-status {
+    justify-content: center;
+    padding: 0;
+  }
+  .g-side.collapsed .account-dropdown > summary {
+    justify-content: center;
+  }
+  .g-side.collapsed .account-panel {
+    right: auto;
+    bottom: 0;
+    left: calc(100% + 14px);
+  }
+}
+
+/* Content sits beside the sidebar. */
+.shell .shell-main {
+  margin-left: calc(var(--side-w) + var(--side-gap)) !important;
+  transition: margin-left 0.5s var(--ease);
+}
+.shell .shell-content {
+  padding-top: 40px !important;
+}
+.g-topbar,
+.g-scrim {
+  display: none;
+}
+
+/* Tablet and phone: glass top bar + slide-in drawer. */
+@media (max-width: 980px) {
+  .shell .shell-main {
+    margin-left: 0 !important;
+  }
+  .shell .shell-content {
+    padding-top: 92px !important;
+  }
+  .g-topbar {
+    position: fixed;
+    top: calc(12px + env(safe-area-inset-top, 0px));
+    right: 16px;
+    left: 16px;
+    z-index: 55;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 7px 7px 7px 14px;
+    border: 1px solid rgb(var(--ink-rgb) / 14%);
+    border-radius: 999px;
+    background: linear-gradient(
+      180deg,
+      rgb(var(--glass-hi-rgb) / 72%),
+      rgb(var(--glass-rgb) / 62%)
+    );
+    -webkit-backdrop-filter: blur(20px) saturate(170%);
+    backdrop-filter: blur(20px) saturate(170%);
+    box-shadow:
+      inset 0 1px 0 rgb(var(--ink-rgb) / 24%),
+      0 12px 36px rgb(0 0 0 / 45%);
+  }
+  .g-topbar .g-brand {
+    margin-right: 0;
+  }
+  .g-topbar .g-brand b {
+    display: inline !important;
+  }
+  .g-menu.is-open span:nth-child(1) {
+    transform: translateY(3.75px) rotate(45deg);
+  }
+  .g-menu.is-open span:nth-child(2) {
+    opacity: 0;
+  }
+  .g-menu.is-open span:nth-child(3) {
+    transform: translateY(-3.75px) rotate(-45deg);
+  }
+  .g-scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 58;
+    display: block;
+    background: rgb(0 0 0 / 50%);
+    -webkit-backdrop-filter: blur(2px);
+    backdrop-filter: blur(2px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4s var(--ease);
+  }
+  .g-scrim.show {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .g-side {
+    width: min(272px, calc(100% - 56px));
+    background: linear-gradient(
+      180deg,
+      rgb(var(--glass-hi-rgb) / 96%),
+      rgb(var(--glass-rgb) / 96%)
+    );
+    animation: none;
+    transform: translateX(calc(-100% - 24px));
+  }
+  .g-side.open {
+    transform: none;
+  }
+  .g-collapse {
+    display: none !important;
+  }
+  .g-side .g-status span {
+    display: inline;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .g-side,
+  .g-side-pill,
+  .shell .shell-main {
+    transition: none;
+    animation: none;
+  }
+}
+
+/* Donut legend drops below the donut when the card is narrow. */
+.lux-donut {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 20px 24px;
+}
+.lux-donut .lux-legend {
+  flex: 1 1 200px;
+}
+@media (max-width: 980px) {
+  .g-side .g-brand b {
+    display: inline;
+  }
+}
+
+/* Action items (e.g. Present demo) look like the nav links. */
+.g-side-nav .g-side-action {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  height: 42px;
+  margin: 2px 0;
+  padding: 0 13px;
+  border: 0;
+  border-radius: 14px;
+  background: none;
+  color: var(--text-2);
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 0.3s;
+}
+.g-side-nav .g-side-action:hover {
+  color: var(--text-strong);
+}
+.g-side-nav .g-side-action svg {
+  flex: none;
+  opacity: 0.8;
+}
+@media (min-width: 981px) {
+  .g-side.collapsed .g-side-action {
+    justify-content: center;
+    padding: 0;
+  }
+  .g-side.collapsed .g-side-action span {
+    display: none;
+  }
+}

@@ -1,0 +1,195 @@
+/* ---------- Building-history states ---------- */
+.history-gate {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 24px;
+  padding: 28px;
+}
+.history-gate.compact {
+  gap: 20px;
+  padding: 18px 22px;
+  border-color: rgb(94 151 208 / 22%);
+  background: linear-gradient(90deg, rgb(94 151 208 / 9%), transparent 55%), var(--panel);
+}
+.history-gate-body .kicker {
+  margin: 0 0 4px;
+  color: #93b8e0;
+}
+.history-gate-body h2 {
+  margin: 0 0 6px;
+  font-size: 19px;
+  font-weight: 600;
+}
+.history-gate.compact .history-gate-body h2 {
+  font-size: 16px;
+}
+.history-gate-body p:last-child {
+  max-width: 68ch;
+  margin: 0;
+  color: var(--text-2);
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+.history-gate-count {
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+}
+.history-gate-count strong {
+  color: var(--text-strong);
+  font-size: 1.5em;
+  font-weight: 600;
+}
+.history-gate-count small {
+  color: var(--text-3);
+  font-size: 0.85em;
+}
+.history-gate.compact .history-gate-count strong {
+  font-size: 17px;
+}
+.history-gate.compact .history-gate-count small {
+  font-size: 11px;
+}
+@media (max-width: 720px) {
+  .history-gate {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .history-gate > .ui-button {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+}
+
+/* Gauge placeholder while history builds */
+.ov-hero-unlock {
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  text-align: center;
+}
+.ov-hero-unlock .history-gate-count strong {
+  font-size: 30px;
+}
+.ov-hero-unlock .history-gate-count small {
+  font-size: 14px;
+}
+.ov-hero-unlock p {
+  display: grid;
+  gap: 4px;
+  max-width: 220px;
+  margin: 0;
+}
+.ov-hero-unlock p strong {
+  color: var(--text-strong);
+  font-size: 14px;
+  font-weight: 600;
+}
+.ov-hero-unlock p span {
+  color: var(--text-3);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+/* Product card without a previous session */
+.ov-product-note {
+  display: flex;
+  align-items: center;
+  min-height: 46px;
+  color: var(--text-3);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* Today's price ladder */
+.price-ladder {
+  display: grid;
+  gap: 18px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.price-ladder li {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr) auto 78px;
+  align-items: center;
+  gap: 16px;
+}
+.price-ladder-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+.price-ladder-name i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.price-ladder-track {
+  height: 30px;
+  overflow: hidden;
+  border-radius: 9px;
+  background: rgb(var(--ink-rgb) / 4%);
+}
+.price-ladder-bar {
+  display: block;
+  width: var(--w);
+  height: 100%;
+  border-radius: 9px;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--c) 25%, transparent),
+    var(--c)
+  );
+  transform-origin: left;
+  animation: ladder-grow 1.2s var(--ease) both;
+}
+@keyframes ladder-grow {
+  from {
+    transform: scaleX(0);
+  }
+}
+.price-ladder strong {
+  color: var(--text-strong);
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.price-ladder em {
+  color: var(--text-3);
+  font-size: 12px;
+  font-style: normal;
+  text-align: right;
+}
+@media (max-width: 600px) {
+  .price-ladder li {
+    grid-template-columns: 1fr auto;
+    gap: 6px 12px;
+  }
+  .price-ladder-track {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    height: 18px;
+  }
+  .price-ladder em {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .price-ladder-bar {
+    animation: none;
+  }
+}
+.price-ladder-note {
+  margin: 22px 0 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+  color: var(--text-3);
+  font-size: 12.5px;
+  line-height: 1.6;
+}

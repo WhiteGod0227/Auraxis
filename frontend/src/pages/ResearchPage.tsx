@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from 'react'
+import Crow from '@/components/Crow'
 import { Link } from 'react-router-dom'
 import { useAccount } from '@/lib/useAccount'
 import { useResource } from '@/lib/useResource'
@@ -159,15 +160,25 @@ export function ResearchResults({
   return (
     <>
       {!data.items.length && (
-        <div className="empty-state">
-          <p>
+        <div className="ui-card research-empty">
+          <Crow size={96} mood="sleepy" className="research-empty-crow" />
+          <h2>
             {data.total === 0
               ? 'No saved research yet.'
               : 'No saved research on this page.'}
+          </h2>
+          <p>
+            Open a comparison or a backtest and press <b>Save research</b>. The
+            exact setup is kept here so you can reopen it as new data arrives.
           </p>
-          <Link className="button" to="/app/relative-value">
-            Explore Relative Value
-          </Link>
+          <div className="research-empty-actions">
+            <Link className="ui-button primary" to="/app/relative-value">
+              Open Compare
+            </Link>
+            <Link className="ui-button" to="/app/backtest">
+              Open Backtest
+            </Link>
+          </div>
         </div>
       )}
       {data.items.map((w) => (

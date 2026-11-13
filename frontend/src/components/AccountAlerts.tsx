@@ -52,17 +52,18 @@ function SignedInAlerts({
       className="panel alert-form"
       aria-label="Account alert synchronization"
     >
-      <h2>Account alerts</h2>
-      <p>
-        Explicitly merge rules between this browser and your private account.
-        Nothing syncs automatically; account rules are never used as an offline
-        fallback.
+      <h2>Sync with your account</h2>
+      <p className="ui-muted-note">
+        Rules live in this browser. Copy them to your account to use them on
+        another device.
       </p>
       {resource.loading && <p role="status">Loading account rules...</p>}
       {resource.error && <p role="alert">{resource.error}</p>}
       {data && (
         <>
-          <p>{data.rules.length} saved account rules.</p>
+          <p className="ui-muted-note">
+            {data.rules.length} rules saved to your account.
+          </p>
           <ul>
             {data.rules.map((rule) => (
               <li key={rule.id}>

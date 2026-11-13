@@ -35,17 +35,7 @@ export function ProfileDetails({ profile }: { profile: ProfileUser }) {
         <dt>Account created</dt>
         <dd>{creationDate(profile.created_at)}</dd>
       </dl>
-      {!editing ? (
-        <button
-          ref={editButton}
-          className="button"
-          onClick={() => {
-            dispatch({ type: 'begin', value: name })
-          }}
-        >
-          Edit name
-        </button>
-      ) : (
+      {editing && (
         <form
           className="research-form"
           onSubmit={async (event) => {
@@ -115,12 +105,26 @@ export function ProfileDetails({ profile }: { profile: ProfileUser }) {
         </form>
       )}
       <p role="status">{success}</p>
-      <p>
+      <div className="profile-actions">
+        {!editing && (
+          <button
+            ref={editButton}
+            className="button"
+            onClick={() => {
+              dispatch({ type: 'begin', value: name })
+            }}
+          >
+            Edit name
+          </button>
+        )}
         <Link className="button" to="/app/research">
           My Research
         </Link>
-      </p>
-      <SignOutButton />
+        <Link className="button" to="/app/security">
+          Security
+        </Link>
+        <SignOutButton />
+      </div>
     </section>
   )
 }
