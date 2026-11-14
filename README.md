@@ -2,6 +2,10 @@
 
 **Same gold. Different contracts. Is the gap real?**
 
+**[Live app](https://auraxis-production.up.railway.app)** · [Dashboard](https://auraxis-production.up.railway.app/app) · [Sign in / Sign up](https://auraxis-production.up.railway.app/login) · [API health](https://auraxis-production.up.railway.app/health)
+
+Frontend and backend are hosted on Railway behind the same HTTPS origin. The hosted market database starts empty; analytics require an authorized data source.
+
 Auraxis is a research dashboard for MCX gold futures — GOLDM, GOLDTEN,
 GOLDGUINEA and GOLDPETAL. It puts every contract on one price basis
 (₹ per 10 g of 999 gold), ranks each price gap against its own recent history,
