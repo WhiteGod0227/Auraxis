@@ -9,7 +9,7 @@ Railway project: `fulfilling-dedication` (`929c07d7-8689-4192-88c4-f3fd8e6940c3`
 - Secure session cookies and CORS restricted to the public frontend origin.
 - `/health` on the frontend proxies to FastAPI; `/api/` uses the same origin.
 - Release uploads include only build inputs, with no local environment files, databases, market CSVs or snapshots. Market analytics remain unavailable until an authorized data source is configured.
-- Initial deployment uses Railway CLI uploads. Frontend source is already linked to GitHub `main`; the backend needs a separate source connection with root `/backend` for automatic deployments.
+- Initial deployment uses Railway CLI uploads. Both services are linked to GitHub `WhiteGod0227/Auraxis`, branch `main`; the backend source root is `/backend` and the frontend root is `/`.
 
 The root Dockerfile builds the frontend using `scripts/build-deployment.mjs` and the dedicated Railway Nginx template. The existing Compose files below remain available for self-hosting. Railway service health checks are `/health`, with one replica and restart on failure.
 
