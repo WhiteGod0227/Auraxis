@@ -267,10 +267,11 @@ interface Options {
   fetcher?: typeof fetch
 }
 export function createApiClient(options: Options = {}) {
-  const base = (
+  const configuredBase = (
     options.baseUrl ??
     (import.meta.env?.VITE_API_BASE_URL || 'http://localhost:8010')
   ).replace(/\/$/, '')
+  const base = configuredBase === 'same-origin' ? '' : configuredBase
   const snapshotBase =
     options.snapshotBaseUrl ?? `${import.meta.env?.BASE_URL ?? '/'}snapshots/`
   const fetcher = options.fetcher ?? fetch
