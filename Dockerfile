@@ -7,7 +7,8 @@ ENV VITE_API_BASE_URL=same-origin
 RUN node scripts/build-deployment.mjs
 
 FROM nginx:stable-alpine
-ENV NGINX_ENVSUBST_FILTER=BACKEND_UPSTREAM
+ENV NGINX_ENVSUBST_FILTER="^(BACKEND_UPSTREAM|NGINX_LOCAL_RESOLVERS)$" \
+    NGINX_ENTRYPOINT_LOCAL_RESOLVERS=1
 COPY deploy/railway.nginx.conf.template /etc/nginx/templates/default.conf.template
 COPY --from=build /frontend/dist-deploy/ /usr/share/nginx/html/
 EXPOSE 80
