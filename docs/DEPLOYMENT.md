@@ -1,3 +1,20 @@
+# Railway deployment — 15 November 2026
+
+Public frontend and same-origin API: https://auraxis-production.up.railway.app
+Railway project: `fulfilling-dedication` (`929c07d7-8689-4192-88c4-f3fd8e6940c3`).
+
+- `Auraxis`: repository-root `Dockerfile`, Nginx on port 80, `BACKEND_UPSTREAM=backend.railway.internal:8000`.
+- `backend`: `backend/Dockerfile`, FastAPI on port 8000, private networking only.
+- Private 500 MB volume at `/data` stores market, account and workspace databases separately.
+- Secure session cookies and CORS restricted to the public frontend origin.
+- `/health` on the frontend proxies to FastAPI; `/api/` uses the same origin.
+- Release uploads include only build inputs, with no local environment files, databases, market CSVs or snapshots. Market analytics remain unavailable until an authorized data source is configured.
+- Initial deployment uses Railway CLI uploads. Frontend source is already linked to GitHub `main`; the backend needs a separate source connection with root `/backend` for automatic deployments.
+
+The root Dockerfile builds the frontend using `scripts/build-deployment.mjs` and the dedicated Railway Nginx template. The existing Compose files below remain available for self-hosting. Railway service health checks are `/health`, with one replica and restart on failure.
+
+## Original deployment preparation notes
+
 # Deployment preparation - pending
 
 Updated 28 October 2026. No hosting account or public API URL exists. No remote upload, publication, resource creation or billing action has been performed. Existing backend 8010 and preview 5173 remain the local workflow.
