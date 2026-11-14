@@ -52,3 +52,6 @@ frontend/public/snapshots/
 **/debug-profile/
 .tmp/
 tmp/
+
+# Platform-specific local Python environments
+.venv-*/
