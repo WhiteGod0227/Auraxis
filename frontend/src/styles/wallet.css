@@ -1,0 +1,60 @@
+/* Profile: optional wallet link card. */
+.wallet-card {
+  display: grid;
+  gap: 12px;
+}
+.wallet-card h2 {
+  margin: 0;
+}
+.wallet-lead {
+  margin: 0;
+  color: var(--text-2);
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+.wallet-card .ui-button.primary {
+  justify-self: start;
+}
+.wallet-linked {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgb(var(--ink-rgb) / 3%);
+}
+.wallet-linked > div {
+  display: grid;
+  flex: 1;
+  gap: 2px;
+  min-width: 160px;
+}
+.wallet-linked strong {
+  color: var(--text-strong);
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 14px;
+}
+.wallet-linked small {
+  color: var(--text-3);
+  font-size: 12px;
+}
+.wallet-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--up);
+}
+.wallet-message {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 13px;
+}
+.wallet-message.is-ok {
+  background: color-mix(in srgb, var(--up) 12%, transparent);
+}
+.wallet-message.is-error {
+  background: color-mix(in srgb, var(--down) 12%, transparent);
+}

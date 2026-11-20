@@ -20,6 +20,7 @@ from app.api.onchain import router as onchain_router
 from app.api.practice import router as practice_router
 from app.api.proofs import router as proofs_router
 from app.api.security import router as security_router
+from app.api.wallet import router as wallet_router
 from app.api.workspaces import router as workspace_router
 from app.core.config import get_settings
 from app.core.logging import setup_logging
@@ -76,6 +77,7 @@ app.include_router(live_router)
 app.include_router(practice_router)
 app.include_router(onchain_router)
 app.include_router(proofs_router)
+app.include_router(wallet_router)
 
 
 @app.middleware("http")
@@ -89,6 +91,7 @@ async def private_workspace_responses(request, call_next):
             "/api/auth/security",
             "/api/practice",
             "/api/proofs",
+            "/api/wallet",
         )
     ):
         response.headers["Cache-Control"] = "private, no-store"
@@ -176,6 +179,7 @@ async def unexpected_error(request, exc):
             "/api/auth/security",
             "/api/practice",
             "/api/proofs",
+            "/api/wallet",
         )
     ):
         response.headers["Cache-Control"] = "private, no-store"
