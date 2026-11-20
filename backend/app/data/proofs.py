@@ -593,7 +593,26 @@ def bundle(settings: Settings, record: sqlite3.Row) -> dict:
             bitcoin_time=batch["bitcoin_time"],
         ),
     )
+    result["batch"]["evm"] = _evm_anchor(settings, batch)
     return result
+
+
+def _evm_anchor(settings: Settings, batch) -> dict | None:
+    """Where this root was also published on the test network (Phase 5)."""
+    keys = batch.keys()
+    tx_hash = batch["evm_tx"] if "evm_tx" in keys else None
+    if not tx_hash:
+        return None
+    explorer = settings.web3_explorer.rstrip("/")
+    return dict(
+        network=settings.web3_network_name,
+        chain_id=settings.web3_chain_id,
+        contract=settings.web3_contract or None,
+        tx=tx_hash,
+        tx_url=f"{explorer}/tx/{tx_hash}",
+        status=batch["evm_status"],
+        block=batch["evm_block"],
+    )
 
 
 def verify_bundle(settings: Settings, data: dict) -> dict:
@@ -696,6 +715,24 @@ def verify_bundle(settings: Settings, data: dict) -> dict:
                 False,
                 "Submitted to OpenTimestamps; Bitcoin confirmation usually takes a "
                 "few hours.",
+            )
+    if settings.web3_active and known:
+        from app.data import evm, web3
+
+        try:
+            when = web3.anchored_at(settings, data["root"])
+        except (evm.EvmError, ValueError):
+            when = None
+        if when is not None:
+            check(
+                f"Published on {settings.web3_network_name}",
+                bool(when),
+                (
+                    "The contract records this root at "
+                    f"{datetime.fromtimestamp(when, UTC).isoformat()[:16]} UTC."
+                )
+                if when
+                else "Not yet published on the test network (usually minutes).",
             )
     valid = leaf_ok and root_ok and known and document_ok
     return dict(valid=valid, anchored=bool(bitcoin), bitcoin=bitcoin, checks=checks)

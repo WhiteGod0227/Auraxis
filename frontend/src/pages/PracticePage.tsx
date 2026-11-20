@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from 'react'
+import { useCallback, useEffect, useId, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Seg } from '@/components/OverviewWidgets'
 import { GapChip } from '@/components/ui'
@@ -22,6 +22,8 @@ import type {
 } from '@/lib/practice'
 import '@/styles/dashboard.css'
 import '@/styles/practice.css'
+import { badgesApi } from '@/lib/badges'
+import type { BadgeList } from '@/lib/badges'
 
 const GUIDE_KEY = 'auraxis.practice.guide.dismissed'
 const rupee = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 })
@@ -717,7 +719,93 @@ function Leaderboard({ summary }: { summary: PracticeSummary }) {
   )
 }
 
+/** On-chain status and claim button for one earned achievement. */
+function BadgeChain({
+  code,
+  earned,
+  list,
+  onClaimed,
+}: {
+  code: string
+  earned: boolean
+  list: BadgeList | null
+  onClaimed: () => void
+}) {
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  if (!list?.enabled || !earned) return null
+  const state = list.badges.find((b) => b.code === code)
+  if (state?.status === 'minted')
+    return (
+      <a
+        className="pr-chain is-minted"
+        href={state.token_url ?? state.tx_url ?? '#'}
+        target="_blank"
+        rel="noreferrer noopener"
+      >
+        On-chain ✓{state.token_id ? ` #${state.token_id}` : ''}
+      </a>
+    )
+  if (state?.status === 'pending')
+    return (
+      <a
+        className="pr-chain"
+        href={state.tx_url ?? '#'}
+        target="_blank"
+        rel="noreferrer noopener"
+      >
+        Minting… ↗
+      </a>
+    )
+  if (!list.wallet)
+    return (
+      <Link className="pr-chain" to="/app/profile">
+        Link a wallet to claim
+      </Link>
+    )
+  return (
+    <span className="pr-chain-wrap">
+      <button
+        type="button"
+        className="pr-chain is-claim"
+        disabled={busy}
+        onClick={async () => {
+          setBusy(true)
+          setError('')
+          try {
+            await badgesApi.claim(code)
+            onClaimed()
+          } catch (e) {
+            setError(e instanceof Error ? e.message : 'Claim failed.')
+          } finally {
+            setBusy(false)
+          }
+        }}
+      >
+        {busy
+          ? 'Claiming…'
+          : state?.status === 'failed'
+            ? 'Retry claim'
+            : 'Claim NFT'}
+      </button>
+      {error && <small role="alert">{error}</small>}
+    </span>
+  )
+}
+
 function Achievements({ summary }: { summary: PracticeSummary }) {
+  const [list, setList] = useState<BadgeList | null>(null)
+  const load = useCallback(() => {
+    badgesApi
+      .list()
+      .then(setList)
+      .catch(() => setList(null))
+  }, [])
+  useEffect(() => {
+    load()
+    const timer = window.setInterval(load, 15_000)
+    return () => window.clearInterval(timer)
+  }, [load])
   const earned = summary.achievements.filter((a) => a.earned_at).length
   return (
     <section className="ui-card" aria-labelledby="ach-title">
@@ -734,10 +822,33 @@ function Achievements({ summary }: { summary: PracticeSummary }) {
             <div>
               <strong>{item.title}</strong>
               <span>{item.description}</span>
+              <BadgeChain
+                code={item.code}
+                earned={Boolean(item.earned_at)}
+                list={list}
+                onClaimed={load}
+              />
             </div>
           </li>
         ))}
       </ul>
+      {list?.enabled && (
+        <p className="pr-chain-note">
+          Earned badges can be claimed as soulbound NFTs on{' '}
+          {list.network.contract_url ? (
+            <a
+              href={list.network.contract_url}
+              target="_blank"
+              rel="noreferrer noopener"
+            >
+              {list.network.name}
+            </a>
+          ) : (
+            list.network.name
+          )}{' '}
+          — a test network: free, no value, and they can never be transferred.
+        </p>
+      )}
       <div className="pr-week">
         <h3>Last 7 days</h3>
         <dl>

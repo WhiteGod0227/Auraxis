@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 from app.api.alerts import router as alerts_router
 from app.api.analytics import router as analytics_router
 from app.api.auth import router as auth_router
+from app.api.badges import router as badges_router
 from app.api.coverage import router as coverage_router
 from app.api.data_refresh import auto_refresh_loop
 from app.api.data_refresh import router as data_router
@@ -25,6 +26,7 @@ from app.api.workspaces import router as workspace_router
 from app.core.config import get_settings
 from app.core.logging import setup_logging
 from app.data import proofs as proofs_service
+from app.data import web3 as web3_service
 from app.data.live import service as live_service
 from app.data.onchain import service as onchain_service
 from app.data.watcher import watch_loop
@@ -44,6 +46,8 @@ async def lifespan(_app: FastAPI):
         tasks.append(asyncio.create_task(onchain_service.run(settings)))
     if settings.proofs_enabled:
         tasks.append(asyncio.create_task(proofs_service.run(settings)))
+    if settings.web3_active:
+        tasks.append(asyncio.create_task(web3_service.run(settings)))
     if settings.bhavcopy_watch:
         tasks.append(asyncio.create_task(watch_loop(settings)))
     try:
@@ -78,6 +82,7 @@ app.include_router(practice_router)
 app.include_router(onchain_router)
 app.include_router(proofs_router)
 app.include_router(wallet_router)
+app.include_router(badges_router)
 
 
 @app.middleware("http")
@@ -92,6 +97,7 @@ async def private_workspace_responses(request, call_next):
             "/api/practice",
             "/api/proofs",
             "/api/wallet",
+            "/api/badges",
         )
     ):
         response.headers["Cache-Control"] = "private, no-store"
@@ -180,6 +186,7 @@ async def unexpected_error(request, exc):
             "/api/practice",
             "/api/proofs",
             "/api/wallet",
+            "/api/badges",
         )
     ):
         response.headers["Cache-Control"] = "private, no-store"

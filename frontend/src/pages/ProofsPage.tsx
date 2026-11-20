@@ -95,6 +95,22 @@ function ProofDetail({ id }: { id: number }) {
             )}
           </dd>
         </div>
+        {batch?.evm && (
+          <div>
+            <dt>Also published on {batch.evm.network}</dt>
+            <dd>
+              <a
+                href={batch.evm.tx_url}
+                target="_blank"
+                rel="noreferrer noopener"
+              >
+                {batch.evm.status === 'confirmed'
+                  ? `Block ${batch.evm.block?.toLocaleString('en-IN') ?? '—'} ↗`
+                  : 'Pending ↗'}
+              </a>
+            </dd>
+          </div>
+        )}
       </dl>
       <div className="pf-downloads">
         <button

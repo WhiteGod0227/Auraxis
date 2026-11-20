@@ -133,6 +133,14 @@ class Settings(BaseSettings):
         "https://a.pool.eternitywall.com",
     ]
     proofs_block_explorer: str = "https://blockstream.info/api"
+    # Phases 4-5 (TEST network only): soulbound badges + proof-root anchors.
+    # Active only when both a contract address and a signer key are set.
+    web3_rpc_url: str = "https://sepolia.base.org"
+    web3_chain_id: int = Field(default=84532, ge=1)
+    web3_network_name: str = "Base Sepolia"
+    web3_explorer: str = "https://sepolia.basescan.org"
+    web3_contract: str = ""
+    web3_signer_key: str = ""  # secret; never commit
     onchain_duty_schedule: dict[str, float] = {
         "2000-01-01": 15.0,
         "2024-07-24": 6.0,
@@ -180,6 +188,18 @@ class Settings(BaseSettings):
             if not 0 <= pct <= 100:
                 raise ValueError("Import duty must be between 0 and 100 %")
         return value
+
+    @field_validator("web3_contract")
+    @classmethod
+    def check_contract(cls, value: str) -> str:
+        value = value.strip()
+        if value and not (len(value) == 42 and value.startswith("0x")):
+            raise ValueError("WEB3_CONTRACT must be a 0x-prefixed address")
+        return value
+
+    @property
+    def web3_active(self) -> bool:
+        return bool(self.web3_contract and self.web3_signer_key.strip())
 
     @model_validator(mode="after")
     def check_session_order(self) -> "Settings":

@@ -38,6 +38,15 @@ export interface ProofBundle {
     calendars: string[]
     bitcoin_height: number | null
     bitcoin_time: string | null
+    evm?: {
+      network: string
+      chain_id: number
+      contract: string | null
+      tx: string
+      tx_url: string
+      status: 'pending' | 'confirmed' | 'failed' | null
+      block: number | null
+    } | null
   } | null
 }
 

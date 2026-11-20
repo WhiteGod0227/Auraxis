@@ -468,3 +468,49 @@
     display: none;
   }
 }
+
+/* On-chain badge claim / status */
+.pr-chain-wrap {
+  display: grid;
+  gap: 4px;
+  margin-top: 6px;
+}
+.pr-chain {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  width: fit-content;
+  margin-top: 6px;
+  padding: 3px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-2) !important;
+  font: inherit;
+  font-size: 11.5px !important;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+.pr-chain-wrap .pr-chain {
+  margin-top: 0;
+}
+.pr-chain.is-claim {
+  border-color: transparent;
+  background: var(--accent-fill);
+  color: var(--on-accent) !important;
+}
+.pr-chain.is-minted {
+  border-color: color-mix(in srgb, var(--up) 45%, transparent);
+  color: var(--up) !important;
+}
+.pr-chain-wrap small {
+  color: var(--down);
+  font-size: 11.5px;
+}
+.pr-chain-note {
+  margin: 12px 0 0;
+  color: var(--text-3);
+  font-size: 12px;
+  line-height: 1.5;
+}
