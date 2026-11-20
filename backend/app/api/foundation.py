@@ -253,6 +253,8 @@ def prices(
                         close_p10_999=row.close_p10_999,
                         has_trade=bool(row.has_trade),
                         quality_reason=_quality(row, settings),
+                        volume_grams=row.volume_grams,
+                        open_interest_grams=row.open_interest_grams,
                     )
                 )
         series.append(

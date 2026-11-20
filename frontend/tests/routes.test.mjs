@@ -178,6 +178,7 @@ for (const [path, heading] of [
   ['/', /Same gold/],
   ['/app', /Overview/],
   ['/app/alerts', /New alert/],
+  ['/app/practice', /Practice/],
   ['/app/security', /Account security/],
   ['/app/recover', /Recover account/],
   ['/app/demo', /A price gap is a question/],

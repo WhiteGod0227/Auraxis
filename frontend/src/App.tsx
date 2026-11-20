@@ -18,6 +18,7 @@ import { RelativeValuePage } from '@/pages/RelativeValuePage'
 import { TermStructurePage } from '@/pages/TermStructurePage'
 import { ResearchPage } from '@/pages/ResearchPage'
 import { ProfilePage } from '@/pages/ProfilePage'
+import { PracticePage } from '@/pages/PracticePage'
 import WorkspaceBoundary from '@/components/WorkspaceBoundary'
 
 export default function App() {
@@ -58,6 +59,7 @@ export default function App() {
         <Route path="profile" element={<ProfilePage />} />
         <Route path="calendar" element={<CalendarPage />} />
         <Route path="alerts" element={<AlertsPage />} />
+        <Route path="practice" element={<PracticePage />} />
         <Route path="report" element={<ReportPage />} />
         <Route path="data-health" element={<DataHealthPage />} />
         <Route path="import" element={<DataImportPage />} />

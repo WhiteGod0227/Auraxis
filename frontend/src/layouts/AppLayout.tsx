@@ -1,15 +1,18 @@
-import { useState } from 'react'
-import { Link, Outlet, useLocation } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import AccountMenu from '@/components/AccountMenu'
 import ThemeToggle from '@/components/ThemeToggle'
 import { presenter } from '@/lib/presenter'
 import AutoImportWatcher from '@/components/AutoImportWatcher'
 import CursorToggle from '@/components/CursorToggle'
-import GlassSidebar from '@/components/GlassSidebar'
-import type { SideGroup } from '@/components/GlassSidebar'
+import TopNav from '@/components/TopNav'
+import type { NavAction, NavItem } from '@/components/TopNav'
 import { PageHeader, Tabs } from '@/components/ui'
 import { useDataSource } from '@/lib/useDataSource'
 import { formatTradeDate } from '@/lib/dataSource'
+import { ago, useLive, useNow } from '@/lib/live'
+import { isLiveActive } from '@/lib/liveView'
+import { shortDate } from '@/lib/insight'
 import { api } from '@/lib/api'
 import { useResource } from '@/lib/useResource'
 import type { Resource } from '@/lib/useResource'
@@ -20,6 +23,15 @@ import { initialCoverageSelection } from '@/lib/coverage'
 import type { CoverageSelection } from '@/lib/coverage'
 import type { Dispatch, SetStateAction } from 'react'
 import '@/styles/data-source.css'
+import '@/styles/market-status.css'
+import '@/styles/practice.css'
+import { useAccount } from '@/lib/useAccount'
+import {
+  clearPractice,
+  demoMoney,
+  refreshPractice,
+  usePractice,
+} from '@/lib/practice'
 
 export interface DashboardContext {
   meta: Resource<MetaResponse>
@@ -32,41 +44,38 @@ export interface DashboardContext {
 const COMPARE = ['/app/relative-value', '/app/term-structure']
 const DATA = ['/app/import', '/app/data-health', '/app/calendar']
 
-const nav: SideGroup[] = [
-  {
-    title: 'Research',
-    links: [
-      { to: '/app', label: 'Overview', icon: 'overview', match: ['/app'] },
-      {
-        to: '/app/relative-value',
-        label: 'Compare',
-        icon: 'compare',
-        match: COMPARE,
-      },
-      { to: '/app/backtest', label: 'Backtest', icon: 'backtest' },
-      { to: '/app/alerts', label: 'Alerts', icon: 'alerts' },
-    ],
-  },
-  {
-    title: 'Data',
-    links: [
-      { to: '/app/import', label: 'Market data', icon: 'data', match: DATA },
-      { to: '/app/research', label: 'Saved research', icon: 'research' },
-    ],
-  },
-  {
-    title: 'Learn',
-    links: [
-      { to: '/app/methodology', label: 'Methodology', icon: 'book' },
-      { to: '/app/demo', label: 'Guided tour', icon: 'play' },
-      {
-        to: '#present',
-        label: 'Present demo',
-        icon: 'present',
-        action: () => presenter.start(),
-      },
-    ],
-  },
+const PAIRS = [
+  'GOLDTEN-GOLDPETAL',
+  'GOLDTEN-GOLDGUINEA',
+  'GOLDGUINEA-GOLDPETAL',
+  'GOLDM-GOLDTEN',
+  'GOLDM-GOLDGUINEA',
+  'GOLDM-GOLDPETAL',
+]
+
+const links: NavItem[] = [
+  { to: '/app', label: 'Overview', match: ['/app'] },
+  { to: '/app/relative-value', label: 'Compare', match: COMPARE },
+  { to: '/app/backtest', label: 'Backtest' },
+  { to: '/app/practice', label: 'Practice' },
+  { to: '/app/alerts', label: 'Alerts' },
+  { to: '/app/import', label: 'Data', match: DATA },
+  { to: '/app/research', label: 'Research' },
+]
+
+const learn: NavAction[] = [
+  { to: '/app/methodology', label: 'Methodology' },
+  { to: '/app/demo', label: 'Guided tour' },
+  { label: 'Present demo', action: () => presenter.start() },
+]
+
+/** Search-only destinations (sub-pages and account pages). */
+const searchPages: NavAction[] = [
+  { to: '/app/term-structure', label: 'Across expiries' },
+  { to: '/app/data-health', label: 'Data health' },
+  { to: '/app/calendar', label: 'Coverage calendar' },
+  { to: '/app/profile', label: 'Profile' },
+  { to: '/app/security', label: 'Security' },
 ]
 
 const sections = [
@@ -97,25 +106,77 @@ const NO_DATA_OK = [
   '/app/import',
   '/app/profile',
   '/app/research',
+  '/app/practice',
   '/app/security',
   '/app/recover',
   '/app/methodology',
   '/app/demo',
 ]
 
-function DataStatus({ source }: { source: ReturnType<typeof useDataSource> }) {
+/** Demo-money balance; links to the Practice page. Signed-in users only. */
+function WalletChip({ userId }: { userId: number }) {
+  const { summary } = usePractice()
+  useEffect(() => {
+    void refreshPractice()
+    return () => clearPractice()
+  }, [userId])
+  if (!summary) return null
+  const change = summary.return_pct
+  return (
+    <Link
+      to="/app/practice"
+      className="tn-wallet"
+      title="Demo money (no cash value). Open Practice."
+    >
+      {demoMoney(summary.equity)}
+      <small
+        className={`tone-${change > 0 ? 'up' : change < 0 ? 'down' : 'neutral'}`}
+      >
+        {change > 0 ? '+' : change < 0 ? '−' : ''}
+        {Math.abs(change).toFixed(1)}%
+      </small>
+    </Link>
+  )
+}
+
+function Wallet() {
+  const { user } = useAccount()
+  return user ? <WalletChip userId={user.id} /> : null
+}
+
+/** Market status: live session, closed with prices pending settlement, or settled. */
+function MarketStatus({
+  source,
+}: {
+  source: ReturnType<typeof useDataSource>
+}) {
   const { status, state, account, busy, refresh } = source
+  const { snapshot } = useLive()
+  const now = useNow(5000)
   const latest = formatTradeDate(status?.latest_trade_date)
+  const live =
+    state !== 'offline' && isLiveActive(snapshot, status?.latest_trade_date)
+  const trading = live && snapshot?.state === 'live'
+  const tone = live ? (trading ? 'live' : 'closed') : state
   const label =
     state === 'offline'
       ? 'Offline'
-      : state === 'empty'
-        ? 'No data'
-        : `Data to ${latest}`
+      : live && snapshot
+        ? trading
+          ? `Live · ${shortDate(snapshot.trade_date)}`
+          : `MCX closed · ${formatTradeDate(snapshot.trade_date)}`
+        : state === 'empty'
+          ? 'No data'
+          : `Settled to ${latest}`
+  const title = live
+    ? `${label}${trading ? `, updated ${ago(snapshot?.updated_at, now) ?? 'just now'}` : ''}. Settlement data to ${latest ?? '—'}.`
+    : label
   return (
-    <span className="g-status" data-state={state} title={label}>
+    <span className="g-status" data-state={tone} title={title}>
       <i aria-hidden="true" />
-      <span>{label}</span>
+      <Link to="/app/import" className="g-status-link">
+        {label}
+      </Link>
       {status?.configured && account.user && (
         <button
           type="button"
@@ -140,6 +201,7 @@ export function AppLayout() {
   const [coverageSelection, setCoverageSelection] = useState(
     initialCoverageSelection,
   )
+  const navigate = useNavigate()
   const path = pathname.replace(/\/$/, '') || '/app'
   const section = sections.find((item) => item.match.includes(path))
   const needsData =
@@ -147,21 +209,26 @@ export function AppLayout() {
     (dataSource.state === 'empty' || dataSource.state === 'offline')
 
   return (
-    <div className="shell">
+    <div className="shell shell-topnav">
       <a className="skip-link" href="#dashboard-content">
         Skip to content
       </a>
-      <GlassSidebar
-        groups={nav}
-        brandTo="/app"
-        footer={
+      <TopNav
+        links={links}
+        more={learn}
+        pages={searchPages}
+        pairs={PAIRS}
+        onPair={(pair) => {
+          setRelativeValue((previous) => ({ ...previous, pair }))
+          navigate('/app/relative-value')
+        }}
+        right={
           <>
-            <DataStatus source={dataSource} />
-            <div className="g-side-row">
-              <AccountMenu placement="up" />
-              <ThemeToggle />
-              <CursorToggle />
-            </div>
+            <Wallet />
+            <MarketStatus source={dataSource} />
+            <ThemeToggle />
+            <CursorToggle />
+            <AccountMenu placement="down" />
           </>
         }
       />
@@ -173,9 +240,13 @@ export function AppLayout() {
         >
           <div className="page-enter" key={section ? section.title : path}>
             {section && (
-              <PageHeader title={section.title} subtitle={section.subtitle}>
-                <Tabs label={`${section.title} views`} items={section.tabs} />
-              </PageHeader>
+              <PageHeader
+                title={section.title}
+                subtitle={section.subtitle}
+                actions={
+                  <Tabs label={`${section.title} views`} items={section.tabs} />
+                }
+              />
             )}
             {needsData && (
               <div className="shell-banner" role="status">

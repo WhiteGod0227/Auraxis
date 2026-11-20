@@ -27,7 +27,13 @@ explains what stands out in plain English, and backtests a simple
 - **Demo mode** — an 8-step guided presentation with live numbers.
 - **Automatic data** — MCX Bhavcopy files saved to your Downloads folder are
   imported within seconds; Upstox auto-refresh is built in.
-- **Light & dark themes**, a liquid-glass sidebar and an animated crow mascot
+- **Live market prices** — with an Upstox token, the Overview shows last
+  traded prices and provisional gaps that update every 30 seconds while MCX
+  is open.
+- **Practice with demo money** — every account gets ◎ 10,00,000 of practice
+  money (no cash value) to trade gaps or single products at live prices, with
+  open P&L, history, achievements and an opt-in leaderboard.
+- **Light & dark themes**, a trading-style top bar with search (press `/`) and an animated crow mascot
   (which can also be your mouse pointer).
 
 ## Tour
@@ -127,6 +133,39 @@ permission has not been established). Options:
    `.\.venv\Scripts\python.exe -m app.data.upstox --days 365`. Rows from MCX
    files are never overwritten.
 
+### Practice trading (demo money)
+
+Signed-in users get ◎ 10,00,000 of demo money on the **Practice** page (also
+reachable from the Overview's Pair check: *Practise this gap*). Trades fill
+only at the backend's own live last-traded prices while MCX is open, hold 10%
+margin and pay the same 5 bps per leg per side as the backtest. Pair trades
+cover the three same-expiry pairs; GOLDM is practised on its own. Demo money
+has no cash value and cannot be bought, withdrawn or transferred. Data lives
+in `backend/practice.sqlite3` (git-ignored); users can reset any time.
+
+### Live prices during market hours
+
+With `UPSTOX_ACCESS_TOKEN` set, the backend also polls Upstox's market-quote
+API every `LIVE_POLL_SECONDS` (default 30) while MCX is open (09:00–23:55 IST,
+Mon–Fri; set `LIVE_SESSION_END=23:30` while US daylight saving is in force).
+One request covers every gold contract, however many people have the
+dashboard open; browsers read the backend's latest snapshot from
+`GET /api/live`.
+
+The **Live market** panel on the Overview shows each product's last traded
+price per 10 g, its change since the last stored settlement, the live gap for
+every pair and how unusual it is. Live gaps are scored against the previous
+10 *settlement* sessions with exactly the same calculation as the settled
+view, so they are directly comparable, but they stay **provisional**:
+live prices are never written to the database, and once that session's
+settlement is loaded the panel steps aside. Outside market hours it shows the
+last traded prices (kept in `data_cache/upstox/live_snapshot.json` across
+restarts).
+
+Upstox may require your server's static IP to be whitelisted for the
+Analytics Token (Developer Apps console). That is simple on your own PC;
+hosted platforms often need a paid static outbound IP.
+
 How much history unlocks what:
 
 | Trading days | What works |
@@ -146,6 +185,8 @@ Key `backend/.env` settings (see `backend/.env.example` for all):
 | `BHAVCOPY_WATCH_DIR` | Folder to watch (default: your Downloads) |
 | `UPSTOX_ACCESS_TOKEN` | Enables the Upstox connector and auto-refresh |
 | `UPSTOX_INCLUDE_EXPIRED` | Expired-contract history (needs Upstox Plus) |
+| `LIVE_POLL_SECONDS` | Live price interval during market hours (default 30, `0` = off, min 5) |
+| `LIVE_SESSION_START` / `LIVE_SESSION_END` | MCX session in IST (default 09:00–23:55) |
 | `DATA_ADMIN_EMAILS` | Restrict who can import or refresh data |
 | `GOOGLE_CLIENT_ID` | Shows "Continue with Google" when set |
 | `CORS_ORIGINS` | Allowed frontend origins |
@@ -177,7 +218,11 @@ original private dataset and need its exported snapshots.
 ## Limitations
 
 - Prices are daily settlements, not executable quotes; backtests assume
-  next-session settlement fills.
+  next-session settlement fills. Live prices are last traded prices, which
+  can be minutes old for thinly traded contracts (each shows its last trade
+  time).
+- Live market hours do not know MCX holidays; on a holiday the panel simply
+  shows the last session's prices.
 - Converting to ₹ per 10 g does not remove location differences (GOLDPETAL is
   quoted ex-Mumbai, the others ex-Ahmedabad). Purity adjustment is
   experimental and off by default.

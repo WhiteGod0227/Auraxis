@@ -1,39 +1,52 @@
-import { lazy, Suspense } from 'react'
-import { Link, useNavigate, useOutletContext } from 'react-router-dom'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
+import {
+  Link,
+  useNavigate,
+  useOutletContext,
+  useSearchParams,
+} from 'react-router-dom'
 import type { DashboardContext } from '@/layouts/AppLayout'
 import { api } from '@/lib/api'
 import { useResource } from '@/lib/useResource'
 import { useDataSource } from '@/lib/useDataSource'
 import { useAccount } from '@/lib/useAccount'
 import {
-  gapLevel,
   grams,
-  inr,
   longDate,
   pairLabel,
-  pairParts,
   shortDate,
   signedInr,
   signedPct,
 } from '@/lib/insight'
-import { GapChip, InfoTip, Skeleton, Sparkline } from '@/components/ui'
+import { GapChip, Skeleton, Sparkline } from '@/components/ui'
 import Crow from '@/components/Crow'
 import { CountUp } from '@/components/Motion'
-import { Donut, Ring, ZGauge } from '@/components/LuxCharts'
-import { HIGH, LOW, NORMAL, productColor } from '@/lib/chartTheme'
-import { HistoryGate, PriceLadder } from '@/components/HistoryGate'
+import { productColor } from '@/lib/chartTheme'
+import { HistoryGate } from '@/components/HistoryGate'
 import { FULL_SESSIONS, MIN_SESSIONS, useBuildingHistory } from '@/lib/history'
 import type { PairSummary, Reference } from '@/lib/types'
 import InsightList from '@/components/InsightList'
 import { overviewInsights } from '@/lib/insights'
+import { ago, istTime, useLive, useNow } from '@/lib/live'
+import type { LiveSnapshot } from '@/lib/live'
+import {
+  isLiveActive,
+  liveMoves,
+  livePairs,
+  liveReferences,
+  withLivePrices,
+} from '@/lib/liveView'
+import { GapTrend, PairCheck, Seg, Switch } from '@/components/OverviewWidgets'
+import type { ChartMetric, ChartRange } from '@/components/ProductChart'
 import '@/styles/overview.css'
 import '@/styles/welcome.css'
+import '@/styles/live.css'
+import '@/styles/dashboard.css'
 
-const ReferencePriceChart = lazy(
-  () => import('@/components/ReferencePriceChart'),
-)
-const GapBars = lazy(() => import('@/components/GapBars'))
+const ProductChart = lazy(() => import('@/components/ProductChart'))
 const WINDOW = 10
+const PRODUCTS = ['GOLDM', 'GOLDTEN', 'GOLDGUINEA', 'GOLDPETAL']
+const RANGES: ChartRange[] = ['1M', '3M', '6M', '1Y', 'All']
 const loadOverview = (signal: AbortSignal) => api.overview({}, signal)
 const loadPrices = (signal: AbortSignal) => api.prices({}, signal)
 const rupees = new Intl.NumberFormat('en-IN', {
@@ -42,119 +55,33 @@ const rupees = new Intl.NumberFormat('en-IN', {
   maximumFractionDigits: 0,
 })
 
-interface PairReading {
-  pair: string
-  expiry: string
-  latest: PairSummary
-  history: (number | null)[]
-}
-
 async function loadPairs(signal: AbortSignal) {
   const response = await api.spreadsSummary(signal)
   return {
     ...response,
-    data: response.data.pairs
-      .filter((item) => typeof item.spread_abs === 'number')
-      .map((item) => ({
-        pair: item.pair,
-        expiry: item.expiry,
-        latest: item,
-        history: item.history.map((point) => point.spread_abs),
-      })),
+    data: response.data.pairs.filter(
+      (item) => typeof item.spread_abs === 'number',
+    ),
   }
 }
 
-/** `span` = earlier sessions actually compared (≤ WINDOW while history builds). */
-function rankText(row: PairSummary, span = WINDOW) {
-  const p = row.percentile
-  if (typeof p !== 'number' || !Number.isFinite(p)) return null
-  if (p >= 99.5) return `Highest of the last ${span} sessions`
-  if (p <= 0.5) return `Lowest of the last ${span} sessions`
-  return p >= 50
-    ? `Higher than ${Math.round(p)}% of the last ${span} sessions`
-    : `Lower than ${Math.round(100 - p)}% of the last ${span} sessions`
-}
+const toneOf = (value: number | null | undefined) =>
+  typeof value === 'number' && Number.isFinite(value) && value !== 0
+    ? value > 0
+      ? 'up'
+      : 'down'
+    : 'neutral'
 
-function ProductCard({
-  reference,
-  history,
-  index,
-  average,
-}: {
-  reference: Reference
-  history: (number | null)[]
-  index: number
-  average: number | null
-}) {
-  const change = reference.day_change_pct
-  const hasChange = typeof change === 'number' && Number.isFinite(change)
-  const points = history.filter((v) => typeof v === 'number').length
-  const price = reference.close_p10_999
-  const vsAverage =
-    typeof price === 'number' && average !== null ? price - average : null
-  const color = productColor(reference.product, index)
-  const tone =
-    typeof change === 'number' && change !== 0
-      ? change > 0
-        ? 'up'
-        : 'down'
-      : 'neutral'
-  return (
-    <article
-      className="ov-product"
-      style={{ '--accent': color } as React.CSSProperties}
-    >
-      <div className="ov-product-top">
-        <h3>
-          <i style={{ background: color }} aria-hidden="true" />
-          {reference.product}
-        </h3>
-        <span className="ov-product-expiry">
-          {reference.expiry_date
-            ? `Exp ${shortDate(reference.expiry_date)}`
-            : ''}
-        </span>
-      </div>
-      {reference.reference_available ? (
-        <>
-          <div className="ov-product-price">
-            <CountUp
-              value={reference.close_p10_999}
-              format={(v) => rupees.format(v)}
-            />
-          </div>
-          {hasChange ? (
-            <div className={`ov-product-change tone-${tone}`}>
-              {signedPct(change)}{' '}
-              <span>{signedInr(reference.day_change_abs)}</span>
-            </div>
-          ) : (
-            <div className="ov-product-change tone-neutral">
-              {vsAverage === null
-                ? 'First session loaded'
-                : Math.abs(vsAverage) < 1
-                  ? 'At the group average'
-                  : `${signedInr(vsAverage)} vs group average`}
-            </div>
-          )}
-          {points >= 2 ? (
-            <Sparkline values={history} width={240} height={46} color={color} />
-          ) : (
-            <div className="ov-product-note">
-              Day-on-day change appears after the next session.
-            </div>
-          )}
-          <div className="ov-product-foot">
-            <span>Volume</span>
-            <strong>{grams(reference.volume_grams)}</strong>
-          </div>
-        </>
-      ) : (
-        <p className="ui-muted-note">No recent traded price.</p>
-      )}
-    </article>
-  )
-}
+/** "Fri 20 Nov" */
+const weekday = (iso: string | null | undefined) =>
+  iso
+    ? new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-GB', {
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short',
+        timeZone: 'UTC',
+      })
+    : ''
 
 function greeting() {
   const hour = new Date().getHours()
@@ -165,60 +92,133 @@ function greeting() {
       : 'Good evening'
 }
 
-/** Page heading with the crow, whose mood follows what the data shows. */
-/** Brings the biggest-gap card into view and briefly highlights it. */
-function showHero() {
-  const hero = document.getElementById('ov-hero')
-  if (!hero) return
-  hero.scrollIntoView({ behavior: 'smooth', block: 'center' })
-  hero.classList.remove('is-pointed')
-  void hero.offsetWidth
-  hero.classList.add('is-pointed')
-  window.setTimeout(() => hero.classList.remove('is-pointed'), 1600)
+/** "● LIVE · updated 12 s ago" — what the numbers on the page are. */
+function SourceBadge({
+  snapshot,
+  live,
+  dataAsOf,
+}: {
+  snapshot: LiveSnapshot | null
+  live: boolean
+  dataAsOf?: string | null
+}) {
+  const now = useNow()
+  if (live && snapshot) {
+    const trading = snapshot.state === 'live'
+    const time = istTime(snapshot.updated_at, false)
+    return (
+      <span className={`ov-source ${trading ? 'is-live' : 'is-closed'}`}>
+        <i aria-hidden="true" />
+        <b>{trading ? 'Live' : 'Closed'}</b>
+        <span>
+          {trading
+            ? `${weekday(snapshot.trade_date)} · updated ${ago(snapshot.updated_at, now) ?? 'just now'}`
+            : `${weekday(snapshot.trade_date)}${time ? ` · last trade ${time} IST` : ''} · settlement pending`}
+        </span>
+      </span>
+    )
+  }
+  if (!dataAsOf) return null
+  return (
+    <span className="ov-source is-settled">
+      <i aria-hidden="true" />
+      <b>Settled</b>
+      <span>
+        {longDate(dataAsOf)}
+        {snapshot?.state === 'closed' && snapshot.market_open
+          ? ' · waiting for the first trades'
+          : ''}
+      </span>
+    </span>
+  )
 }
 
-function Welcome({
-  name,
-  subtitle,
-  mood,
-  status,
+/** Product picker: the reference's asset dropdown. */
+function ProductPicker({
+  references,
+  value,
+  onChange,
 }: {
-  name?: string
-  subtitle: string
-  mood: 'alert' | 'thinking' | 'sleepy'
-  status?: string
+  references: Reference[]
+  value: string
+  onChange: (product: string) => void
 }) {
-  const first = name?.trim().split(/\s+/)[0]
+  const menu = useRef<HTMLDetailsElement>(null)
+  const current = references.find((item) => item.product === value)
+  useEffect(() => {
+    const close = (event: MouseEvent | KeyboardEvent) => {
+      const element = menu.current
+      if (!element?.open) return
+      if (event instanceof KeyboardEvent) {
+        if (event.key === 'Escape') element.open = false
+        return
+      }
+      if (!element.contains(event.target as Node)) element.open = false
+    }
+    document.addEventListener('mousedown', close)
+    document.addEventListener('keydown', close)
+    return () => {
+      document.removeEventListener('mousedown', close)
+      document.removeEventListener('keydown', close)
+    }
+  }, [])
   return (
-    <header className="ov-welcome">
-      <div className="ov-welcome-text">
-        <p className="kicker">
-          {greeting()}
-          {first ? `, ${first}` : ''}
-        </p>
-        <h1>Overview</h1>
-        <p>{subtitle}</p>
-      </div>
-      {mood === 'alert' ? (
-        <button
-          type="button"
-          className="ov-welcome-crow is-clickable"
-          onClick={showHero}
-          title="Show me the biggest gap"
-          aria-label={`${status ?? 'Unusual gaps today'}. Show the biggest gap.`}
+    <details className="pp" ref={menu}>
+      <summary aria-label={`Product: ${value}. Change product`}>
+        <span
+          className="pp-mark"
+          style={{ '--accent': productColor(value) } as React.CSSProperties}
+          aria-hidden="true"
         >
-          <span className="ov-welcome-glow" />
-          <Crow size={150} mood={mood} />
-          {status && <span className="ov-welcome-chip">{status} →</span>}
-        </button>
-      ) : (
-        <div className="ov-welcome-crow" aria-hidden="true">
-          <span className="ov-welcome-glow" />
-          <Crow size={150} mood={mood} />
-          {status && <span className="ov-welcome-chip">{status}</span>}
-        </div>
-      )}
-    </header>
+          {value.replace(/^GOLD/, '').slice(0, 2) || 'G'}
+        </span>
+        <span className="pp-name">
+          <strong>{value}</strong>
+          <small>
+            {current?.expiry_date
+              ? `Exp ${shortDate(current.expiry_date)}`
+              : 'MCX gold'}
+          </small>
+        </span>
+        <svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">
+          <path
+            d="m2.5 4.5 3.5 3.5 3.5-3.5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+          />
+        </svg>
+      </summary>
+      <div className="pp-panel" role="listbox" aria-label="Products">
+        {PRODUCTS.map((product) => {
+          const item = references.find((r) => r.product === product)
+          return (
+            <button
+              key={product}
+              type="button"
+              role="option"
+              aria-selected={product === value}
+              onClick={() => {
+                onChange(product)
+                if (menu.current) menu.current.open = false
+              }}
+            >
+              <i style={{ background: productColor(product) }} />
+              <span>{product}</span>
+              <b>
+                {typeof item?.close_p10_999 === 'number'
+                  ? rupees.format(item.close_p10_999)
+                  : '—'}
+              </b>
+              <small className={`tone-${toneOf(item?.day_change_pct)}`}>
+                {signedPct(item?.day_change_pct)}
+              </small>
+            </button>
+          )
+        })}
+      </div>
+    </details>
   )
 }
 
@@ -288,112 +288,136 @@ export function DashboardOverviewPage() {
   const overview = useResource(loadOverview)
   const prices = useResource(loadPrices)
   const pairs = useResource(loadPairs)
+  const { snapshot } = useLive()
+  const [params, setParams] = useSearchParams()
+  const [metric, setMetric] = useState<ChartMetric>('price')
+  const [range, setRange] = useState<ChartRange>('6M')
+  const [showVolume, setShowVolume] = useState(true)
+  const [compare, setCompare] = useState(false)
+  const [pairChoice, setPairChoice] = useState<string | null>(null)
+  const [trendSpan, setTrendSpan] = useState<'10' | '30'>('30')
+
   const overviewData = overview.response?.data
-  const references = overviewData?.references ?? []
+  const dataAsOf = overviewData?.data_as_of ?? null
+
+  // Today's live prices lead until that session's settlement is stored.
+  const live = isLiveActive(snapshot, dataAsOf)
+  const settledPairs = pairs.response?.data ?? []
+  const references = live
+    ? liveReferences(snapshot)
+    : (overviewData?.references ?? [])
+  const summaries = live ? livePairs(snapshot, settledPairs) : settledPairs
+  const moves: Record<string, number | null> = live
+    ? liveMoves(snapshot)
+    : Object.fromEntries(
+        settledPairs.map((item) => {
+          const values = item.history
+            .map((point) => point.spread_abs)
+            .filter((value): value is number => typeof value === 'number')
+          return [
+            item.pair,
+            values.length >= 2 ? values.at(-1)! - values.at(-2)! : null,
+          ]
+        }),
+      )
+  const asOf = live ? snapshot.trade_date : dataAsOf
+  const lastTrades: Record<string, string | null> = Object.fromEntries(
+    (live ? snapshot.references : []).map((item) => [
+      item.product,
+      istTime(item.last_trade_at, false),
+    ]),
+  )
+
+  const requested = params.get('product')
+  const product =
+    requested && PRODUCTS.includes(requested) ? requested : 'GOLDTEN'
+  const setProduct = (value: string) =>
+    setParams(
+      (previous) => {
+        const next = new URLSearchParams(previous)
+        next.set('product', value)
+        return next
+      },
+      { replace: true },
+    )
+  const reference = references.find((item) => item.product === product)
+
   const hasData = references.some((r) => r.reference_available)
-  const readings = pairs.response?.data ?? []
-  const ranked = [...readings].sort(
-    (x, y) => Math.abs(y.latest.z ?? 0) - Math.abs(x.latest.z ?? 0),
+  const hasRanks = summaries.some((r) => typeof r.z === 'number')
+  const ranked = [...summaries].sort((x, y) =>
+    hasRanks
+      ? Math.abs(y.z ?? 0) - Math.abs(x.z ?? 0)
+      : Math.abs(y.spread_abs ?? 0) - Math.abs(x.spread_abs ?? 0),
   )
-  const hasRanks = readings.some((r) => typeof r.latest.z === 'number')
-  const byGap = [...readings].sort(
-    (x, y) =>
-      Math.abs(y.latest.spread_abs ?? 0) - Math.abs(x.latest.spread_abs ?? 0),
-  )
-  const top = hasRanks
-    ? ranked.find((r) => typeof r.latest.z === 'number')
-    : byGap[0]
-  const tableRows = hasRanks ? ranked : byGap
+  const selectedPair =
+    summaries.find((row) => row.pair === pairChoice) ?? ranked[0]
   const insights = overviewInsights({
     references,
-    pairs: readings.map((r) => r.latest),
+    pairs: summaries,
     sessions,
     span,
-    asOf: overviewData?.data_as_of,
+    asOf,
   })
-  const unusualCount = readings.filter(
-    (r) => Math.abs(r.latest.z ?? 0) >= 2,
-  ).length
-  const available = references.filter(
-    (r) => r.reference_available && typeof r.close_p10_999 === 'number',
-  )
-  const average = available.length
-    ? available.reduce((sum, r) => sum + (r.close_p10_999 as number), 0) /
-      available.length
-    : null
-  const singleDay =
-    Boolean(prices.response) &&
-    (prices.response?.data.series ?? []).every(
-      (s) => s.history.filter((p) => p.has_trade).length < 2,
-    )
-
-  const explore = (reading: PairReading) => {
+  const unusualCount = summaries.filter((r) => Math.abs(r.z ?? 0) >= 2).length
+  const priceData = prices.response?.data
+  const chartData =
+    priceData && live ? withLivePrices(priceData, snapshot) : priceData
+  const volumes = references
+    .map((r) => ({ product: r.product, value: r.volume_grams ?? 0 }))
+    .filter((item) => item.value > 0)
+  const totalVolume = volumes.reduce((sum, item) => sum + item.value, 0)
+  const share =
+    totalVolume && reference?.volume_grams
+      ? (reference.volume_grams / totalVolume) * 100
+      : null
+  const explore = (row: PairSummary) => {
     setRelativeValue((previous) => ({
       ...previous,
-      pair: reading.pair,
-      preferred: reading.expiry,
+      pair: row.pair,
+      preferred: row.expiry,
     }))
     navigate('/app/relative-value')
   }
-  const historyFor = (product: string) =>
-    prices.response?.data.series
-      .find((s) => s.product === product)
-      ?.history.slice(-30)
-      .map((point) => (point.has_trade ? point.close_p10_999 : null)) ?? []
-  const nextExpiries = (overviewData?.upcoming_expiries ?? [])
-    .filter(
-      (item, index, all) =>
-        all.findIndex(
-          (other) =>
-            other.product === item.product &&
-            other.expiry_date <= item.expiry_date,
-        ) === index,
-    )
-    .sort((x, y) => x.days_to_expiry - y.days_to_expiry)
-  const volumes = references
-    .map((r, index) => ({
-      label: r.product,
-      value: r.volume_grams ?? 0,
-      color: productColor(r.product, index),
-      note: grams(r.volume_grams),
-    }))
-    .filter((item) => item.value > 0)
-  const totalVolume = volumes.reduce((sum, item) => sum + item.value, 0)
 
-  const loading = overview.loading && !overviewData
+  const loading = overview.loading && !overviewData && !live
   const empty =
     !loading &&
     !hasData &&
     (dataSource.state === 'empty' ||
       dataSource.state === 'offline' ||
       Boolean(overviewData))
+  const when = live ? 'today' : `on ${shortDate(asOf)}`
+  const first = user?.name?.trim().split(/\s+/)[0]
 
   return (
-    <div className="ov-page">
-      <Welcome
-        name={user?.name}
-        subtitle={
-          overviewData?.data_as_of
-            ? `Latest session ${longDate(overviewData.data_as_of)} · prices in ₹ per 10 g`
-            : 'MCX gold futures on one common price basis'
-        }
-        mood={
-          building || !hasRanks
-            ? 'thinking'
-            : unusualCount > 0
-              ? 'alert'
-              : 'sleepy'
-        }
-        status={
-          !hasData
-            ? undefined
-            : building || !hasRanks
-              ? 'Collecting history'
-              : unusualCount > 0
-                ? `${unusualCount} unusual ${unusualCount === 1 ? 'gap' : 'gaps'} today`
-                : 'Gaps look normal today'
-        }
-      />
+    <div className="ov-page db">
+      <header className="db-head">
+        <div>
+          <p className="kicker">
+            {greeting()}
+            {first ? `, ${first}` : ''}
+          </p>
+          <h1>Overview</h1>
+        </div>
+        <div className="db-head-meta">
+          <SourceBadge snapshot={snapshot} live={live} dataAsOf={dataAsOf} />
+          {hasData && hasRanks && !building && (
+            <button
+              type="button"
+              className={`db-flag ${unusualCount ? 'is-alert' : ''}`}
+              onClick={() =>
+                document
+                  .getElementById('ov-hero')
+                  ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+              }
+            >
+              {unusualCount
+                ? `${unusualCount} unusual ${unusualCount === 1 ? 'gap' : 'gaps'} ${when}`
+                : `Gaps look normal ${when}`}
+            </button>
+          )}
+        </div>
+      </header>
 
       {overview.error && !overviewData && dataSource.state !== 'offline' && (
         <div className="error-notice" role="alert">
@@ -406,17 +430,18 @@ export function DashboardOverviewPage() {
 
       {loading ? (
         <div className="ui-stack">
+          <Skeleton height={76} />
+          <Skeleton height={420} />
           <div className="ui-grid-4">
-            {[0, 1, 2, 3].map((i) => (
-              <Skeleton key={i} height={200} />
+            {[0, 1, 2].map((i) => (
+              <Skeleton key={i} height={260} />
             ))}
           </div>
-          <Skeleton height={300} />
         </div>
       ) : empty ? (
         <Onboarding offline={dataSource.state === 'offline'} />
       ) : (
-        <div className="ov-layout">
+        <div className="db-grid">
           {building && sessions !== null && (
             <HistoryGate
               compact
@@ -424,9 +449,9 @@ export function DashboardOverviewPage() {
               need={MIN_SESSIONS}
               title={`${sessions} real trading ${sessions === 1 ? 'day' : 'days'} loaded`}
             >
-              Prices, volumes and the futures curve are live from MCX now. Gap
-              rankings unlock at {MIN_SESSIONS} sessions and are most reliable
-              from {FULL_SESSIONS}.
+              Prices, volumes and the futures curve are ready now. Gap rankings
+              unlock at {MIN_SESSIONS} sessions and are most reliable from{' '}
+              {FULL_SESSIONS}.
             </HistoryGate>
           )}
           {shortHistory && sessions !== null && (
@@ -441,340 +466,284 @@ export function DashboardOverviewPage() {
               needs about 20.
             </HistoryGate>
           )}
-          <section aria-label="Products" className="ov-row ov-products">
-            {references.map((reference, index) => (
-              <ProductCard
-                key={reference.product}
-                reference={reference}
-                history={historyFor(reference.product)}
-                index={index}
-                average={average}
-              />
-            ))}
-          </section>
 
-          {insights.length > 0 && (
-            <section
-              className="ui-card ov-insights"
-              aria-labelledby="insights-title"
-            >
-              <div className="ui-card-head">
-                <h2 id="insights-title">What stands out</h2>
-                <p>Written from today's numbers</p>
-              </div>
-              <InsightList items={insights} />
-            </section>
-          )}
-
-          <div className="ov-row ov-split">
-            <section
-              className="ov-hero ui-card"
-              id="ov-hero"
-              aria-labelledby="hero-title"
-            >
-              {top ? (
-                <>
-                  <div className="ov-hero-main">
-                    <p className="kicker" id="hero-title">
-                      {hasRanks
-                        ? 'Biggest gap vs usual'
-                        : 'Biggest price gap today'}
-                    </p>
-                    <div className="ov-hero-pair">
-                      <h2>{pairLabel(top.pair)}</h2>
-                      {hasRanks && <GapChip z={top.latest.z} />}
-                    </div>
-                    <p className="ui-summary-line">
-                      {pairParts(top.pair)[0]} is{' '}
-                      <strong>
-                        {inr(Math.abs(top.latest.spread_abs ?? 0))}
-                      </strong>{' '}
-                      {(top.latest.spread_abs ?? 0) >= 0
-                        ? 'more expensive'
-                        : 'cheaper'}{' '}
-                      than {pairParts(top.pair)[1]} per 10 g
-                      {gapLevel(top.latest.z).phrase
-                        ? ` — ${gapLevel(top.latest.z).phrase}.`
-                        : '.'}
-                    </p>
-                    <dl className="ov-hero-figures">
-                      <div>
-                        <dt>Gap per 10 g</dt>
-                        <dd>{signedInr(top.latest.spread_abs)}</dd>
-                      </div>
-                      <div>
-                        <dt>Of price</dt>
-                        <dd>{signedPct(top.latest.spread_pct)}</dd>
-                      </div>
-                      <div>
-                        <dt>Contract</dt>
-                        <dd>{shortDate(top.expiry)}</dd>
-                      </div>
-                    </dl>
-                    <div className="ov-hero-actions">
-                      <button
-                        type="button"
-                        className="ui-button primary"
-                        onClick={() => explore(top)}
-                      >
-                        Explore this gap →
-                      </button>
-                      <Link
-                        className="ui-button"
-                        to={`/app/report?pair=${encodeURIComponent(top.pair)}&expiry=${top.expiry}`}
-                      >
-                        Share report
-                      </Link>
-                    </div>
-                  </div>
-                  {hasRanks ? (
-                    <ZGauge
-                      z={top.latest.z}
-                      size={280}
-                      caption={rankText(top.latest, span) ?? undefined}
+          {/* Asset row: picker + stats strip */}
+          <section className="db-asset ov-products" aria-label="Product">
+            <ProductPicker
+              references={references}
+              value={product}
+              onChange={setProduct}
+            />
+            <dl className="db-stats ui-card">
+              <div>
+                <dt>Price / 10 g</dt>
+                <dd className="db-stat-strong">
+                  {typeof reference?.close_p10_999 === 'number' ? (
+                    <CountUp
+                      value={reference.close_p10_999}
+                      format={(v) => rupees.format(v)}
                     />
                   ) : (
-                    <div className="ov-hero-unlock">
-                      <Ring
-                        value={(sessions ?? 0) / MIN_SESSIONS}
-                        size={150}
-                        stroke={12}
-                        color={LOW}
-                        center={
-                          <span className="history-gate-count">
-                            <strong>{sessions ?? 0}</strong>
-                            <small>/ {MIN_SESSIONS}</small>
-                          </span>
-                        }
-                      />
-                      <p>
-                        <strong>Is it unusual?</strong>
-                        <span>
-                          The gauge appears once {MIN_SESSIONS} sessions are
-                          loaded.
-                        </span>
-                      </p>
-                    </div>
+                    '—'
                   )}
-                </>
-              ) : pairs.loading ? (
-                <Skeleton height={220} />
-              ) : (
-                <p className="ui-muted-note">
-                  Not enough history yet to rank price gaps. Import more trading
-                  days to unlock this view.
-                </p>
-              )}
-            </section>
-
-            <section className="ui-card" aria-labelledby="share-title">
-              <div className="ui-card-head">
-                <h2 id="share-title">Volume share</h2>
-                <p>Latest session</p>
+                </dd>
               </div>
-              <Donut
-                data={volumes}
-                size={160}
-                stroke={22}
-                center={
-                  <span>
-                    <strong>{grams(totalVolume)}</strong>
-                    <small>traded</small>
+              <div>
+                <dt>
+                  {reference?.previous_comparison_date
+                    ? `Change since ${shortDate(reference.previous_comparison_date)}${live ? ' close' : ''}`
+                    : 'Change'}
+                </dt>
+                <dd className={`tone-${toneOf(reference?.day_change_pct)}`}>
+                  {signedPct(reference?.day_change_pct)}{' '}
+                  <small>({signedInr(reference?.day_change_abs)})</small>
+                </dd>
+              </div>
+              <div>
+                <dt>Volume {live ? 'today' : ''}</dt>
+                <dd>{grams(reference?.volume_grams)}</dd>
+              </div>
+              <div>
+                <dt>Open interest</dt>
+                <dd>{grams(reference?.open_interest_grams)}</dd>
+              </div>
+              <div>
+                <dt>Volume share</dt>
+                <dd className="db-share">
+                  {share === null ? '—' : `${share.toFixed(0)}%`}
+                  <span aria-hidden="true">
+                    <i
+                      style={{
+                        width: `${Math.max(share ?? 0, 2)}%`,
+                        background: productColor(product),
+                      }}
+                    />
                   </span>
-                }
-              />
-            </section>
-          </div>
-
-          <div className="ov-row ov-split">
-            <section className="ui-card" aria-labelledby="trend-title">
-              <div className="ui-card-head">
-                <h2 id="trend-title">
-                  {singleDay ? 'Price per 10 g today' : 'Price trend'}
-                </h2>
-                <p>
-                  {singleDay
-                    ? 'Nearest active contract · close-up scale'
-                    : '₹ per 10 g · nearest active contract'}
-                </p>
+                </dd>
               </div>
-              {singleDay ? (
-                <>
-                  <PriceLadder
-                    items={available.map((r) => ({
-                      product: r.product,
-                      price: r.close_p10_999,
-                    }))}
+              <div>
+                <dt>Expiry</dt>
+                <dd>
+                  {reference?.expiry_date
+                    ? `${shortDate(reference.expiry_date)} · ${reference.days_to_expiry ?? '—'}d`
+                    : '—'}
+                </dd>
+              </div>
+              <div>
+                <dt>{live ? 'Last trade' : 'Session'}</dt>
+                <dd>
+                  {live
+                    ? reference?.has_trade && lastTrades[product]
+                      ? `${lastTrades[product]} IST`
+                      : 'None today'
+                    : shortDate(asOf)}
+                </dd>
+              </div>
+            </dl>
+          </section>
+
+          {/* Main chart + pair check */}
+          <div className="db-main">
+            <section
+              className="ui-card db-chart"
+              aria-label={`${product} chart`}
+            >
+              <div className="db-toolbar">
+                <Seg
+                  label="Chart metric"
+                  value={metric}
+                  onChange={setMetric}
+                  options={[
+                    { value: 'price', label: 'Price' },
+                    { value: 'oi', label: 'Open interest' },
+                  ]}
+                />
+                <div className="db-toolbar-right">
+                  <Switch on={showVolume} onChange={setShowVolume}>
+                    Volume
+                  </Switch>
+                  {metric === 'price' && (
+                    <Switch on={compare} onChange={setCompare}>
+                      All products
+                    </Switch>
+                  )}
+                  <Seg
+                    label="Range"
+                    value={range}
+                    onChange={setRange}
+                    options={RANGES}
                   />
-                  <p className="price-ladder-note">
-                    Every product is converted to ₹ per 10 g of 999 gold, so
-                    these prices are directly comparable. The spread between the
-                    cheapest and dearest is the gap Auraxis tracks. The trend
-                    chart appears from the second session.
-                  </p>
-                </>
-              ) : prices.response?.data ? (
-                <Suspense fallback={<Skeleton height={320} />}>
-                  <ReferencePriceChart response={prices.response.data} />
+                </div>
+              </div>
+              {chartData ? (
+                <Suspense fallback={<Skeleton height={340} />}>
+                  <ProductChart
+                    product={product}
+                    series={chartData.series}
+                    metric={metric}
+                    range={range}
+                    showVolume={showVolume}
+                    compare={compare && metric === 'price'}
+                  />
                 </Suspense>
               ) : (
-                <Skeleton height={320} />
+                <Skeleton height={340} />
               )}
-            </section>
-            <section className="ui-card" aria-labelledby="bars-title">
-              <div className="ui-card-head">
-                <h2 id="bars-title">
-                  {hasRanks ? 'Gap vs usual' : 'Gap today'}{' '}
-                  <InfoTip>
-                    {hasRanks
-                      ? `How far each pair's gap is from its average of the last ${WINDOW} sessions, in standard deviations. Beyond ±2 is unusual. Click a bar to explore.`
-                      : 'First product minus second, in ₹ per 10 g on the same 999 purity basis. Click a bar to explore.'}
-                  </InfoTip>
-                </h2>
-              </div>
-              <div className="g-legend" aria-hidden="true">
-                {hasRanks ? (
-                  <>
-                    <span>
-                      <i style={{ background: LOW }} />
-                      Below usual
+              <div className="db-chart-legend" aria-hidden="true">
+                {(compare && metric === 'price' ? PRODUCTS : [product]).map(
+                  (name) => (
+                    <span key={name}>
+                      <i
+                        style={{
+                          background:
+                            compare && metric === 'price'
+                              ? productColor(name)
+                              : 'var(--text-strong)',
+                        }}
+                      />
+                      {name}
                     </span>
-                    <span>
-                      <i style={{ background: NORMAL }} />
-                      Normal
-                    </span>
-                    <span>
-                      <i style={{ background: HIGH }} />
-                      Above usual
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    <span>
-                      <i style={{ background: LOW }} />
-                      First is cheaper
-                    </span>
-                    <span>
-                      <i style={{ background: HIGH }} />
-                      First is dearer
-                    </span>
-                  </>
+                  ),
                 )}
+                {showVolume && (
+                  <span>
+                    <i className="is-bar" />
+                    Volume
+                  </span>
+                )}
+                <span className="db-chart-note">
+                  {metric === 'price' ? '₹ per 10 g · ' : ''}nearest active
+                  contract{live ? ' · last point live' : ''}
+                </span>
               </div>
-              {readings.length ? (
-                <Suspense fallback={<Skeleton height={280} />}>
-                  <GapBars
-                    mode={hasRanks ? 'z' : 'gap'}
-                    items={ranked.map((r) => ({
-                      pair: r.pair,
-                      z: r.latest.z,
-                      gap: r.latest.spread_abs,
-                    }))}
-                    onSelect={(pair) => {
-                      const reading = readings.find((r) => r.pair === pair)
-                      if (reading) explore(reading)
-                    }}
-                  />
-                </Suspense>
-              ) : (
-                <Skeleton height={280} />
-              )}
             </section>
+            <PairCheck
+              pairs={ranked}
+              selected={selectedPair}
+              onSelect={setPairChoice}
+              moves={moves}
+              live={live}
+              settledOn={dataAsOf}
+              span={span}
+              hasRanks={hasRanks}
+              onExplore={explore}
+            />
           </div>
 
-          <div className="ov-row ov-split">
+          {/* Comparisons + selected pair's trend */}
+          <div className="db-bottom">
             <section className="ui-card" aria-labelledby="pairs-title">
               <div className="ui-card-head">
                 <h2 id="pairs-title">All comparisons</h2>
-                <p>Click a row to explore</p>
+                <p>{live ? 'Live · provisional' : 'Settlement prices'}</p>
               </div>
-              {pairs.loading && !readings.length ? (
+              {pairs.loading && !summaries.length ? (
                 <Skeleton height={260} />
               ) : (
                 <div className="ui-table-scroll">
-                  <table className="ui-table">
+                  <table className="ui-table ov-pairs">
                     <thead>
                       <tr>
                         <th>Pair</th>
                         <th className="num">Gap / 10 g</th>
+                        <th className="num">
+                          {live ? `Since ${shortDate(dataAsOf)}` : 'Day change'}
+                        </th>
                         <th>vs usual</th>
-                        {hasRanks && <th className="hide-sm">Recent trend</th>}
+                        <th className="hide-sm">Last {WINDOW + 1}</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {tableRows.map((reading) => (
+                      {ranked.map((row) => (
                         <tr
-                          key={reading.pair}
-                          className="clickable"
+                          key={row.pair}
+                          className={`clickable ${row.pair === selectedPair?.pair ? 'is-selected' : ''}`}
                           tabIndex={0}
-                          onClick={() => explore(reading)}
+                          onClick={() => setPairChoice(row.pair)}
+                          onDoubleClick={() => explore(row)}
                           onKeyDown={(event) => {
-                            if (event.key === 'Enter') explore(reading)
+                            if (event.key === 'Enter') explore(row)
+                            if (event.key === ' ') {
+                              event.preventDefault()
+                              setPairChoice(row.pair)
+                            }
                           }}
                         >
                           <td className="ov-pair-cell">
-                            {pairLabel(reading.pair)}
-                            <span>Exp {shortDate(reading.expiry)}</span>
+                            {pairLabel(row.pair)}
+                            <span>Exp {shortDate(row.expiry)}</span>
                           </td>
-                          <td className="num">
-                            {signedInr(reading.latest.spread_abs)}
+                          <td className="num">{signedInr(row.spread_abs)}</td>
+                          <td className={`num tone-${toneOf(moves[row.pair])}`}>
+                            {signedInr(moves[row.pair])}
                           </td>
                           <td>
                             {hasRanks ? (
-                              <GapChip z={reading.latest.z} />
+                              <GapChip z={row.z} />
                             ) : (
                               <span className="ui-muted-note">
                                 After {MIN_SESSIONS} sessions
                               </span>
                             )}
                           </td>
-                          {hasRanks && (
-                            <td className="hide-sm">
-                              <Sparkline
-                                values={reading.history}
-                                width={130}
-                                color="#9A9AA2"
-                              />
-                            </td>
-                          )}
+                          <td className="hide-sm">
+                            <Sparkline
+                              values={row.history
+                                .slice(-(WINDOW + 1))
+                                .map((point) => point.spread_abs)}
+                              width={110}
+                              color="var(--c6)"
+                            />
+                          </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
               )}
+              <p className="db-table-hint">
+                Click a row to check it above · double-click or Enter opens it
+                in Compare
+              </p>
             </section>
-            <section className="ui-card" aria-labelledby="expiry-title">
-              <div className="ui-card-head">
-                <h2 id="expiry-title">Next expiries</h2>
-                <p>Days left</p>
+            <section className="ui-card db-card" aria-labelledby="gt-title">
+              <div className="db-card-head">
+                <div>
+                  <h2 id="gt-title">
+                    {selectedPair ? pairLabel(selectedPair.pair) : 'Gap trend'}
+                  </h2>
+                  <p>Gap per 10 g · last {trendSpan} sessions</p>
+                </div>
+                <Seg
+                  label="Sessions"
+                  value={trendSpan}
+                  onChange={setTrendSpan}
+                  options={['10', '30']}
+                />
               </div>
-              <ul className="ov-expiries">
-                {nextExpiries.map((item, index) => (
-                  <li key={item.product}>
-                    <Ring
-                      value={Math.max(0.05, 1 - item.days_to_expiry / 60)}
-                      size={48}
-                      stroke={5}
-                      color={productColor(item.product, index)}
-                      center={
-                        <strong className="ov-ring-days">
-                          {item.days_to_expiry}
-                        </strong>
-                      }
-                    />
-                    <div>
-                      <strong>{item.product}</strong>
-                      <span>{longDate(item.expiry_date)}</span>
-                    </div>
-                  </li>
-                ))}
-                {!nextExpiries.length && (
-                  <li className="ui-muted-note">No upcoming expiries.</li>
-                )}
-              </ul>
+              <GapTrend
+                points={(selectedPair?.history ?? []).slice(-Number(trendSpan))}
+              />
             </section>
           </div>
+
+          {/* Plain-English summary */}
+          <section
+            className="ui-card ov-insights db-insights"
+            aria-labelledby="insights-title"
+          >
+            <div className="ui-card-head">
+              <h2 id="insights-title">What stands out</h2>
+              <p>{live ? 'From live prices' : `From ${shortDate(asOf)}`}</p>
+            </div>
+            {insights.length ? (
+              <InsightList items={insights} />
+            ) : (
+              <p className="ui-muted-note">Nothing stands out yet.</p>
+            )}
+          </section>
+
+          {live && <p className="ov-live-note">{snapshot.note}</p>}
         </div>
       )}
     </div>

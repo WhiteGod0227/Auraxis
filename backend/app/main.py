@@ -15,10 +15,13 @@ from app.api.data_refresh import auto_refresh_loop
 from app.api.data_refresh import router as data_router
 from app.api.foundation import router as foundation_router
 from app.api.health import router as health_router
+from app.api.live import router as live_router
+from app.api.practice import router as practice_router
 from app.api.security import router as security_router
 from app.api.workspaces import router as workspace_router
 from app.core.config import get_settings
 from app.core.logging import setup_logging
+from app.data.live import service as live_service
 from app.data.watcher import watch_loop
 
 setup_logging()
@@ -30,6 +33,8 @@ async def lifespan(_app: FastAPI):
     tasks = []
     if settings.upstox_access_token.strip() and settings.auto_refresh_hours > 0:
         tasks.append(asyncio.create_task(auto_refresh_loop(settings)))
+    if settings.upstox_access_token.strip() and settings.live_poll_seconds > 0:
+        tasks.append(asyncio.create_task(live_service.run(settings)))
     if settings.bhavcopy_watch:
         tasks.append(asyncio.create_task(watch_loop(settings)))
     try:
@@ -59,13 +64,21 @@ app.include_router(workspace_router)
 app.include_router(alerts_router)
 app.include_router(security_router)
 app.include_router(data_router)
+app.include_router(live_router)
+app.include_router(practice_router)
 
 
 @app.middleware("http")
 async def private_workspace_responses(request, call_next):
     response = await call_next(request)
     if request.url.path.startswith(
-        ("/api/workspaces", "/api/auth/profile", "/api/alerts", "/api/auth/security")
+        (
+            "/api/workspaces",
+            "/api/auth/profile",
+            "/api/alerts",
+            "/api/auth/security",
+            "/api/practice",
+        )
     ):
         response.headers["Cache-Control"] = "private, no-store"
         response.headers["Vary"] = "Cookie, Origin"
@@ -145,7 +158,13 @@ async def unexpected_error(request, exc):
         },
     )
     if request.url.path.startswith(
-        ("/api/workspaces", "/api/auth/profile", "/api/alerts", "/api/auth/security")
+        (
+            "/api/workspaces",
+            "/api/auth/profile",
+            "/api/alerts",
+            "/api/auth/security",
+            "/api/practice",
+        )
     ):
         response.headers["Cache-Control"] = "private, no-store"
         response.headers["Vary"] = "Cookie, Origin"

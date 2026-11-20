@@ -1,16 +1,16 @@
 /**
- * Chart colours on a charcoal surface. Data is the only place colour appears;
- * each product keeps one colour everywhere. Refined jewel tones (slate, copper,
- * jade, garnet), validated on #151518 for lightness, chroma, contrast and
- * colour-blind separation; products are always labelled by name as well.
+ * Chart colours. Each product keeps one colour everywhere; values are CSS
+ * variables (styles/studio.css) so dark and light themes each get a tuned
+ * shade: pastel aqua, lavender, pink and amber on near-black, deeper versions
+ * of the same hues on white. Products are always labelled by name as well.
  */
 export const PALETTE = {
-  slate: '#5E97D0',
-  copper: '#CA723C',
-  jade: '#359B75',
-  garnet: '#B4446E',
-  violet: '#8B6FD6',
-  grey: '#9A9AA2',
+  slate: 'var(--c1)',
+  copper: 'var(--c2)',
+  jade: 'var(--c3)',
+  garnet: 'var(--c4)',
+  violet: 'var(--c5)',
+  grey: 'var(--c6)',
 }
 export const PRODUCT_COLORS: Record<string, string> = {
   GOLDM: PALETTE.slate,
@@ -22,31 +22,31 @@ export const productColor = (product: string, index = 0) =>
   PRODUCT_COLORS[product] ??
   Object.values(PALETTE)[index % Object.values(PALETTE).length]
 
-/** Diverging "vs usual": below = slate, normal = neutral grey, above = copper. */
-export const LOW = PALETTE.slate
-export const NORMAL = '#8E8E96'
-export const HIGH = PALETTE.copper
-export const UP = '#4FAE8A'
-export const DOWN = '#D9705F'
+/** Diverging "vs usual": below = aqua, normal = neutral grey, above = coral. */
+export const LOW = 'var(--low)'
+export const NORMAL = 'var(--normal)'
+export const HIGH = 'var(--high)'
+export const UP = 'var(--up)'
+export const DOWN = 'var(--down)'
 
 export const AXIS = 'var(--axis)'
 export const GRID = 'var(--grid)'
 export const SILVER = 'var(--text)'
-export const MUTED_LINE = '#9A9AA2'
+export const MUTED_LINE = 'var(--c6)'
 export const tooltipStyle = {
   background: 'var(--tooltip-bg)',
   border: '1px solid var(--tooltip-border)',
   borderRadius: 12,
   color: 'var(--text)',
   fontSize: 12,
-  fontFamily: 'Montserrat, sans-serif',
+  fontFamily: 'Inter, sans-serif',
   boxShadow: '0 12px 30px var(--shadow)',
 }
 export const legendStyle = {
   fontSize: 12,
   paddingTop: 10,
   color: 'var(--text-2)',
-  fontFamily: 'Montserrat, sans-serif',
+  fontFamily: 'Inter, sans-serif',
 }
 /** Shared animation props so every chart draws in the same way. */
 export const draw = {

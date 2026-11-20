@@ -142,6 +142,12 @@ def test_fixed_expiry_history_and_purity_switch(api):
     assert [r["close_p10_raw"] for r in points["history"]] == [80, 90, 100]
     assert not points["history"][0]["has_trade"]
     assert points["history"][0]["quality_reason"] == "no_trade"
+    # Daily volume and open interest travel with each point for volume charts.
+    assert all(
+        isinstance(r["volume_grams"], int | float)
+        and isinstance(r["open_interest_grams"], int | float)
+        for r in points["history"]
+    )
     assert (
         client.get("/api/prices?product=GOLDGUINEA").json()["series"][0]["history"]
         == []

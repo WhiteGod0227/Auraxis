@@ -376,3 +376,24 @@ def test_absent_database_no_creation(analytics_api, tmp_path):
         assert body[field] == []
         assert body["data_available"] is False
     assert not path.exists()
+
+
+def test_spreads_cache_refreshes_when_the_database_changes(analytics_api):
+    client, engine, _ = analytics_api
+    url = f"/api/spreads?pair={PAIR}&expiry={LATE}&window=2&min_periods=2"
+    first = get(client, url)["series"][0]["latest"]["spread_abs"]
+    # Identical requests are served from the cache.
+    assert get(client, url)["series"][0]["latest"]["spread_abs"] == first
+    last_day = date(2026, 10, 13)
+    with engine.begin() as connection:
+        connection.execute(
+            update(bhav)
+            .where(
+                bhav.c.symbol == "GOLDTEN",
+                bhav.c.expiry_date == LATE,
+                bhav.c.trade_date == last_day,
+            )
+            .values(close=150)
+        )
+    # A write changes the SQLite file, so the next response is recomputed.
+    assert get(client, url)["series"][0]["latest"]["spread_abs"] == first + 48

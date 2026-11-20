@@ -15,6 +15,7 @@ import './styles/sidebar.css'
 import './styles/history.css'
 import './styles/refine.css'
 import './styles/theme.css'
+import './styles/studio.css'
 import { initTheme } from './lib/theme'
 
 initTheme()
