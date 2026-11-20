@@ -17,3 +17,6 @@
 !deploy/
 !deploy/frontend.Dockerfile
 !deploy/nginx.conf
+
+!Dockerfile
+!deploy/railway.nginx.conf.template

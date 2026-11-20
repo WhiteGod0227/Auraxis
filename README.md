@@ -2,6 +2,13 @@
 
 **Same gold. Different contracts. Is the gap real?**
 
+**Live deployments**
+
+- **Railway** (frontend and API on one origin): [Live app](https://auraxis-production.up.railway.app) · [Dashboard](https://auraxis-production.up.railway.app/app) · [Sign in / Sign up](https://auraxis-production.up.railway.app/login) · [API health](https://auraxis-production.up.railway.app/health). The hosted market database starts empty; analytics require an authorized data source.
+- **Vercel + Railway** (frontend on Vercel, `/api` rewritten to a Railway backend with live Upstox data): [Live app](https://auraxis-ten.vercel.app) · [Dashboard](https://auraxis-ten.vercel.app/app) · [API health](https://auraxis-ten.vercel.app/health).
+
+Both use `VITE_API_BASE_URL=same-origin`; see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+
 Auraxis is a research dashboard for MCX gold futures — GOLDM, GOLDTEN,
 GOLDGUINEA and GOLDPETAL. It puts every contract on one price basis
 (₹ per 10 g of 999 gold), ranks each price gap against its own recent history,
