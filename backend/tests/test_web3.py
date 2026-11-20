@@ -347,3 +347,12 @@ def test_nonces_are_sequential_across_sends(settings, node):
         proofs.make_batch(settings, force=True, calendar_factory=calendar_factory())
     web3.anchor_batches(settings)
     assert node.nonce == 3 and len(node.sent) == 3
+
+
+def test_fixed_bytes_are_left_aligned():
+    # supportsInterface(bytes4) as used by the deploy verification.
+    data = evm.call_data("supportsInterface(bytes4)", "0x80ac58cd")
+    assert data[:4].hex() == "01ffc9a7"
+    assert data[4:] == bytes.fromhex("80ac58cd") + bytes(28)
+    with pytest.raises(ValueError):
+        evm.call_data("supportsInterface(bytes4)", "0x80ac58")

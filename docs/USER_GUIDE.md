@@ -200,6 +200,21 @@ regular) and a **last 7 days** summary. The **leaderboard** is opt-in: choose
 a display name and **Join**; only that name and your return are shown. You
 appear after your first closed trade. **Leave leaderboard** any time.
 
+### Badges as NFTs (optional, test network)
+Once you have earned an achievement and linked a wallet (see section 13),
+press **Claim NFT** under it. Auraxis mints a **soulbound** badge to your
+wallet on **Base Sepolia**, a public Ethereum *test* network:
+
+- **Free for you** — Auraxis pays the (test) gas; you sign nothing.
+- **No value** — test-network tokens can't be sold, and the badge can
+  never be transferred; it simply proves the achievement belongs to you.
+- The chip shows **Minting… ↗** (a link to the transaction) and then
+  **On-chain ✓ #id**, linking to the token on BaseScan.
+- Each badge can be claimed once per wallet. Without a wallet the chip
+  reads **Link a wallet to claim**.
+
+Demo money itself is never put on a blockchain.
+
 ---
 
 ## 8. Alerts
@@ -298,6 +313,14 @@ has not changed since** — anchored in the Bitcoin blockchain.
   check is shown with ✓ or ✕: fingerprint, Merkle path, root, timestamp and
   Bitcoin anchoring. Any edit to the record makes it **Not valid**.
 
+**Also published on Base Sepolia.** Each sealed root is also written to
+the Auraxis contract on the Base Sepolia test network, usually within a
+minute — long before Bitcoin confirms. The proof details show
+*Also published on Base Sepolia* with the block number, and **Verify**
+adds a ✓ *Published on Base Sepolia* check that reads the contract
+directly. Bitcoin remains the long-term anchor; the test network gives a
+fast, public second witness.
+
 ---
 
 ## 13. Your account, security and wallet
@@ -316,7 +339,8 @@ has not changed since** — anchored in the Bitcoin blockchain.
 4. The linked address appears with a link to Etherscan; **Unlink** any time.
 
 A wallet can be linked to only one Auraxis account, and nothing in Auraxis
-requires one.
+requires one. A linked wallet lets you claim achievement badges as NFTs
+(section 7).
 
 ---
 

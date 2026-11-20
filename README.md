@@ -44,6 +44,10 @@ step by step.
   Bitcoin via OpenTimestamps; anyone can verify a shared proof.
 - **Optional wallet link** — connect MetaMask (or any Ethereum wallet) on
   your profile with Sign-In with Ethereum: a free signature, no transaction.
+- **Soulbound badges & on-chain anchors (test network)** — earned
+  achievements can be claimed as non-transferable ERC-721/ERC-5192 NFTs on
+  Base Sepolia, and every proof root is also published to the same
+  contract. The server pays the test gas; users sign nothing.
 - **Light & dark themes**, a trading-style top bar with search (press `/`) and an animated crow mascot
   (which can also be your mouse pointer).
 
@@ -179,6 +183,24 @@ directly from its ERC-20 contract on Ethereum mainnet (`totalSupply`,
 daily token prices is paired with MCX settlements for the gap history.
 Read-only: no wallet, key or transaction is involved.
 
+### Soulbound badges and proof anchors (Base Sepolia test network)
+
+`backend/contracts/AuraxisBadges.sol` (ERC-721 + ERC-5192, every transfer
+reverts) has two operator-only functions: `mint(to, badge)` — one token per
+badge per wallet, with on-chain JSON metadata — and `anchor(root, batchId)`,
+which records `anchoredAt[root] = block.timestamp`. The backend signs
+EIP-1559 transactions itself (`app/data/evm.py`: RLP, RFC 6979, low-s;
+byte-exact against eth-account in tests) and a background loop confirms
+mints and anchors every 15 s. The verifier reads `anchoredAt` on-chain.
+
+Deployed and verified at
+[`0x7256a51Ba02FE20Bbca1Df2FA96322B5a794f884`](https://sepolia.basescan.org/address/0x7256a51Ba02FE20Bbca1Df2FA96322B5a794f884).
+To deploy your own: put a fresh `WEB3_SIGNER_KEY` in `backend/.env`, fund
+its address from a Base Sepolia faucet, then run
+`.venv/Scripts/python.exe scripts/deploy_badges.py` and set the printed
+`WEB3_CONTRACT`. `--verify ADDRESS` re-checks a deployment. The feature is
+off unless both variables are set. Testnet only: tokens have no value.
+
 ### Live prices during market hours
 
 With `UPSTOX_ACCESS_TOKEN` set, the backend also polls Upstox's market-quote
@@ -227,6 +249,8 @@ Key `backend/.env` settings (see `backend/.env.example` for all):
 | `GOOGLE_CLIENT_ID` | Shows "Continue with Google" when set |
 | `CORS_ORIGINS` | Allowed frontend origins |
 | `AUTH_COOKIE_SECURE` | Set `true` when served over HTTPS |
+| `WEB3_CONTRACT` / `WEB3_SIGNER_KEY` | Enable badges and anchors (both required; key is a secret) |
+| `WEB3_RPC_URL` / `WEB3_CHAIN_ID` | Test network (default Base Sepolia, 84532) |
 
 The frontend reads `VITE_API_BASE_URL` (default `http://localhost:8010`).
 

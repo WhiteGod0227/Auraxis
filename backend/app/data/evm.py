@@ -79,11 +79,12 @@ def encode_word(kind: str, value) -> bytes:
         if not 0 <= int(value) < 2**256:
             raise ValueError("uint out of range")
         return int(value).to_bytes(32, "big")
-    if kind == "bytes32":
+    if kind.startswith("bytes") and kind[5:].isdigit():
+        size = int(kind[5:])
         raw = bytes.fromhex(value[2:]) if isinstance(value, str) else bytes(value)
-        if len(raw) != 32:
-            raise ValueError("bytes32 must be 32 bytes")
-        return raw
+        if not 1 <= size <= 32 or len(raw) != size:
+            raise ValueError(f"{kind} must be {size} bytes")
+        return raw.ljust(32, b"\x00")  # fixed bytes are left-aligned
     raise ValueError(f"Unsupported ABI type {kind}")
 
 
