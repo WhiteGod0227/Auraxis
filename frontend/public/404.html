@@ -1,10 +1,102 @@
 <!doctype html>
 <html lang="en">
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Auraxis — not found</title>
-  <h1>File not found</h1>
-  <p>
-    The requested resource is unavailable. <a href="/">Return to Auraxis</a>.
-  </p>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Auraxis — not found</title>
+    <style>
+      :root {
+        --bg: #f3f4f6;
+        --panel: #ffffff;
+        --line: #e3e4e8;
+        --text: #16181c;
+        --muted: #6b7079;
+        --btn: #141416;
+        --on-btn: #ffffff;
+        color-scheme: light dark;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0b0c0e;
+          --panel: #15171b;
+          --line: #262a31;
+          --text: #f2f3f5;
+          --muted: #9196a0;
+          --btn: #f2f3f5;
+          --on-btn: #111214;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        display: grid;
+        place-items: center;
+        min-height: 100svh;
+        margin: 0;
+        padding: 24px 16px;
+        background: var(--bg);
+        color: var(--text);
+        font: 15px/1.55 system-ui, -apple-system, 'Segoe UI', sans-serif;
+      }
+      main {
+        width: min(100%, 420px);
+        padding: 32px 28px;
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        background: var(--panel);
+        text-align: center;
+      }
+      .code {
+        margin: 0;
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.14em;
+      }
+      h1 {
+        margin: 8px 0 6px;
+        font-size: 24px;
+        letter-spacing: -0.02em;
+      }
+      p {
+        margin: 0;
+        color: var(--muted);
+      }
+      nav {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 10px;
+        margin-top: 22px;
+      }
+      a {
+        display: inline-flex;
+        align-items: center;
+        min-height: 42px;
+        padding: 0 18px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        color: var(--text);
+        font-weight: 600;
+        text-decoration: none;
+      }
+      a.primary {
+        border-color: transparent;
+        background: var(--btn);
+        color: var(--on-btn);
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p class="code">404</p>
+      <h1>File not found</h1>
+      <p>This page doesn't exist or has moved.</p>
+      <nav>
+        <a class="primary" href="/app">Open the dashboard</a>
+        <a href="/">Home</a>
+      </nav>
+    </main>
+  </body>
 </html>

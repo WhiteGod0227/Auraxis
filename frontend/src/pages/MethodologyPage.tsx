@@ -86,7 +86,7 @@ export function MethodologyPage() {
         </p>
         <details
           className="method-details"
-          open={Boolean(spreads.error || backtest.error || catalog.error)}
+          open={Boolean(spreads.error || backtest.error)}
         >
           <summary>Normalization details</summary>
           <p>
@@ -223,7 +223,7 @@ export function MethodologyPage() {
         </p>
         <details
           className="method-details"
-          open={Boolean(spreads.error || backtest.error || catalog.error)}
+          open={Boolean(spreads.error || backtest.error)}
         >
           <summary>Spreads and historical statistics details</summary>
           <details className="method-formula">
@@ -294,7 +294,7 @@ export function MethodologyPage() {
         </p>
         <details
           className="method-details"
-          open={Boolean(spreads.error || backtest.error || catalog.error)}
+          open={Boolean(spreads.error || backtest.error)}
         >
           <summary>Maturity comparisons details</summary>
           <p>
@@ -334,7 +334,7 @@ export function MethodologyPage() {
         </p>
         <details
           className="method-details"
-          open={Boolean(spreads.error || backtest.error || catalog.error)}
+          open={Boolean(spreads.error || backtest.error)}
         >
           <summary>Term structure and roll-down details</summary>
           <p>
@@ -388,7 +388,7 @@ export function MethodologyPage() {
         </p>
         <details
           className="method-details"
-          open={Boolean(spreads.error || backtest.error || catalog.error)}
+          open={Boolean(spreads.error || backtest.error)}
         >
           <summary>Simulation execution details</summary>
         </details>
@@ -401,7 +401,7 @@ export function MethodologyPage() {
         </p>
         <details
           className="method-details"
-          open={Boolean(spreads.error || backtest.error || catalog.error)}
+          open={Boolean(spreads.error || backtest.error)}
         >
           <summary>Sizing and costs details</summary>
           <p>
@@ -465,7 +465,7 @@ export function MethodologyPage() {
         </p>
         <details
           className="method-details"
-          open={Boolean(spreads.error || backtest.error || catalog.error)}
+          open={Boolean(spreads.error || backtest.error)}
         >
           <summary>Reporting and cost sensitivity details</summary>
           <p>
@@ -526,7 +526,7 @@ export function MethodologyPage() {
         </p>
         <details
           className="method-details"
-          open={Boolean(spreads.error || backtest.error || catalog.error)}
+          open={Boolean(spreads.error || backtest.error)}
         >
           <summary>Offline mode details</summary>
           <p>
@@ -550,12 +550,10 @@ export function MethodologyPage() {
             <CrowLoader label="Loading saved configurations…" />
           )}
           {catalog.error && (
-            <div className="error-notice">
-              <p>Snapshot metadata unavailable: {catalog.error}</p>
-              <button className="button" onClick={catalog.retry}>
-                Retry snapshot metadata
-              </button>
-            </div>
+            <p className="ui-muted-note">
+              No offline snapshot is bundled with this deployment, so every
+              figure comes from the live data server.
+            </p>
           )}
           {snapshot && (
             <>
@@ -624,7 +622,7 @@ export function MethodologyPage() {
         </p>
         <details
           className="method-details"
-          open={Boolean(spreads.error || backtest.error || catalog.error)}
+          open={Boolean(spreads.error || backtest.error)}
         >
           <summary>Limitations details</summary>
         </details>
