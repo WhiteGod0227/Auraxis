@@ -9,6 +9,7 @@ import ts from 'typescript'
 
 const urls = {}
 for (const name of [
+  'env',
   'format',
   'relativeValue',
   'comparisonExplanation',
