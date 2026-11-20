@@ -30,13 +30,30 @@ export function MotionManager() {
     )
     // Track per effect run (StrictMode mounts effects twice in development).
     const watched = new WeakSet<Element>()
-    const scan = () =>
+    // Safety net: never leave content hidden. Anything not revealed by
+    // scrolling shows on its own shortly after it mounts, and on print.
+    let fallback = 0
+    const revealAll = () =>
+      document.querySelectorAll<HTMLElement>(REVEAL).forEach((el) => {
+        if (el.classList.contains('in')) return
+        el.classList.add('in')
+        io.unobserve(el)
+      })
+    const scan = () => {
+      let added = false
       document.querySelectorAll<HTMLElement>(REVEAL).forEach((el) => {
         if (el.classList.contains('in') || watched.has(el)) return
         watched.add(el)
         io.observe(el)
+        added = true
       })
+      if (added) {
+        window.clearTimeout(fallback)
+        fallback = window.setTimeout(revealAll, 2500)
+      }
+    }
     scan()
+    window.addEventListener('beforeprint', revealAll)
     const mo = new MutationObserver(scan)
     mo.observe(document.body, { childList: true, subtree: true })
 
@@ -53,6 +70,8 @@ export function MotionManager() {
     return () => {
       io.disconnect()
       mo.disconnect()
+      window.clearTimeout(fallback)
+      window.removeEventListener('beforeprint', revealAll)
       document.removeEventListener('pointermove', spotlight)
       root.classList.remove('motion-ready')
     }

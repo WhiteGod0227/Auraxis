@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import {
   Link,
   useNavigate,
@@ -222,6 +223,49 @@ function ProductPicker({
   )
 }
 
+const WELCOME_KEY = 'auraxis.welcome.dismissed'
+
+function GuestWelcome() {
+  const [hidden, setHidden] = useState(() => {
+    try {
+      return localStorage.getItem(WELCOME_KEY) === '1'
+    } catch {
+      return false
+    }
+  })
+  if (hidden) return null
+  return (
+    <aside className="db-welcome" aria-label="Welcome">
+      <Crow size={30} bar={false} mood="perched" animated={false} />
+      <p>
+        <b>You're exploring as a guest.</b> Sign up free to save research, set
+        alerts and practise with demo money.
+      </p>
+      <Link
+        className="ui-button primary db-welcome-cta"
+        to="/login?mode=signup&returnTo=%2Fapp"
+      >
+        Sign up free
+      </Link>
+      <button
+        type="button"
+        className="db-welcome-close"
+        aria-label="Dismiss welcome message"
+        onClick={() => {
+          setHidden(true)
+          try {
+            localStorage.setItem(WELCOME_KEY, '1')
+          } catch {
+            /* private mode: hide for this visit only */
+          }
+        }}
+      >
+        ×
+      </button>
+    </aside>
+  )
+}
+
 function Onboarding({ offline }: { offline: boolean }) {
   return (
     <section className="ov-onboarding ui-card">
@@ -284,7 +328,21 @@ export function DashboardOverviewPage() {
     !building && sessions !== null && sessions < FULL_SESSIONS
   const navigate = useNavigate()
   const dataSource = useDataSource()
-  const { user } = useAccount()
+  const { user, checked } = useAccount()
+  // Phones: a slim sticky price bar once the stats strip scrolls away.
+  const [statsEl, setStatsEl] = useState<HTMLDListElement | null>(null)
+  const [statsGone, setStatsGone] = useState(false)
+  useEffect(() => {
+    const element = statsEl
+    if (!element || typeof IntersectionObserver === 'undefined') return
+    const io = new IntersectionObserver(
+      ([entry]) =>
+        setStatsGone(!entry.isIntersecting && entry.boundingClientRect.top < 0),
+      { rootMargin: '-64px 0px 0px 0px' },
+    )
+    io.observe(element)
+    return () => io.disconnect()
+  }, [statsEl])
   const overview = useResource(loadOverview)
   const prices = useResource(loadPrices)
   const pairs = useResource(loadPairs)
@@ -442,6 +500,26 @@ export function DashboardOverviewPage() {
         <Onboarding offline={dataSource.state === 'offline'} />
       ) : (
         <div className="db-grid">
+          {checked && !user && <GuestWelcome />}
+          {typeof document !== 'undefined' &&
+            createPortal(
+              <div
+                className={`db-mbar ${statsGone ? 'is-shown' : ''}`}
+                aria-hidden="true"
+              >
+                <strong>{product}</strong>
+                <span>
+                  {typeof reference?.close_p10_999 === 'number'
+                    ? rupees.format(reference.close_p10_999)
+                    : '—'}
+                </span>
+                <small className={`tone-${toneOf(reference?.day_change_pct)}`}>
+                  {signedPct(reference?.day_change_pct)}
+                </small>
+                {live && <i className="db-mbar-live">Live</i>}
+              </div>,
+              document.body,
+            )}
           {building && sessions !== null && (
             <HistoryGate
               compact
@@ -474,7 +552,7 @@ export function DashboardOverviewPage() {
               value={product}
               onChange={setProduct}
             />
-            <dl className="db-stats ui-card">
+            <dl className="db-stats ui-card" ref={setStatsEl}>
               <div>
                 <dt>Price / 10 g</dt>
                 <dd className="db-stat-strong">
@@ -641,7 +719,7 @@ export function DashboardOverviewPage() {
                 <Skeleton height={260} />
               ) : (
                 <div className="ui-table-scroll">
-                  <table className="ui-table ov-pairs">
+                  <table className="ui-table ov-pairs db-pairs">
                     <thead>
                       <tr>
                         <th>Pair</th>
@@ -673,8 +751,15 @@ export function DashboardOverviewPage() {
                             {pairLabel(row.pair)}
                             <span>Exp {shortDate(row.expiry)}</span>
                           </td>
-                          <td className="num">{signedInr(row.spread_abs)}</td>
-                          <td className={`num tone-${toneOf(moves[row.pair])}`}>
+                          <td className="num" data-label="Gap">
+                            {signedInr(row.spread_abs)}
+                          </td>
+                          <td
+                            className={`num tone-${toneOf(moves[row.pair])}`}
+                            data-label={
+                              live ? `Since ${shortDate(dataAsOf)}` : 'Day'
+                            }
+                          >
                             {signedInr(moves[row.pair])}
                           </td>
                           <td>

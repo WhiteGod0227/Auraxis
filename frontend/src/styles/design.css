@@ -498,7 +498,8 @@ h3 {
   stroke-width: 1.6;
   stroke-linejoin: round;
   stroke-linecap: round;
-  vector-effect: non-scaling-stroke;
+  /* No vector-effect here: non-scaling-stroke makes Chrome ignore
+     pathLength, which breaks the draw-in dash animation (invisible line). */
 }
 .ui-sparkline-empty {
   display: block;

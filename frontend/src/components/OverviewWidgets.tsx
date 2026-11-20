@@ -1,6 +1,7 @@
-import { useId } from 'react'
+import { useId, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { GapChip } from '@/components/ui'
+import { gapLevel } from '@/lib/insight'
 import { productColor } from '@/lib/chartTheme'
 import {
   inr,
@@ -92,40 +93,61 @@ export function Switch({
 /* Pair check (side panel)                                                    */
 /* -------------------------------------------------------------------------- */
 
-/** σ scale from −3 to +3 with the current reading marked. */
-function SigmaScale({ z }: { z: number | null }) {
-  const clamp = finite(z) ? Math.max(-3, Math.min(3, z)) : null
+/** Where today's gap sits against its usual level, in words first. */
+const ZONES = [
+  { from: -3, to: -2, tone: 'low', strong: true },
+  { from: -2, to: -1, tone: 'low', strong: false },
+  { from: -1, to: 1, tone: 'usual', strong: false },
+  { from: 1, to: 2, tone: 'high', strong: false },
+  { from: 2, to: 3, tone: 'high', strong: true },
+] as const
+
+function UsualGauge({ z, span }: { z: number | null; span: number }) {
+  if (!finite(z))
+    return (
+      <p className="pk-gauge-note">
+        A reading appears once there is enough history.
+      </p>
+    )
   const at = (value: number) => ((value + 3) / 6) * 100
+  const clamp = Math.max(-3, Math.min(3, z))
+  const level = gapLevel(z)
+  const size = Math.abs(z)
+  const where = z >= 0 ? 'above' : 'below'
   return (
-    <div className="pk-scale" aria-hidden="true">
-      <div className="pk-track">
-        {clamp !== null && (
-          <span
-            className={`pk-fill ${clamp < 0 ? 'is-low' : 'is-high'}`}
-            style={{
-              left: `${Math.min(at(0), at(clamp))}%`,
-              width: `${Math.abs(at(clamp) - at(0))}%`,
-            }}
-          />
-        )}
-        {[-3, -2, -1, 0, 1, 2, 3].map((tick) => (
+    <div className="pk-gauge">
+      <p className="pk-gauge-head">
+        <strong className={`tone-${level.tone}`}>
+          {level.chip === 'Normal' ? 'Within its usual range' : level.chip}
+        </strong>
+        <span>
+          {size < 0.05
+            ? `Right at its ${span}-session average`
+            : `${size.toFixed(1)}σ ${where} its ${span}-session average`}
+        </span>
+      </p>
+      <div
+        className="pk-gauge-track"
+        role="img"
+        aria-label={`${level.chip}: ${size.toFixed(1)} standard deviations ${where} average`}
+      >
+        {ZONES.map((zone) => (
           <i
-            key={tick}
-            className={Math.abs(tick) === 2 ? 'is-edge' : ''}
-            style={{ left: `${at(tick)}%` }}
+            key={zone.from}
+            className={`is-${zone.tone} ${zone.strong ? 'is-strong' : ''}`}
+            style={{ width: `${((zone.to - zone.from) / 6) * 100}%` }}
           />
         ))}
-        {clamp !== null && (
-          <b
-            className={clamp < 0 ? 'is-low' : 'is-high'}
-            style={{ left: `${at(clamp)}%` }}
-          />
-        )}
+        <b
+          className={`is-${level.tone}`}
+          style={{ left: `${at(clamp)}%` }}
+          aria-hidden="true"
+        />
       </div>
-      <div className="pk-scale-labels">
-        <span>−3σ</span>
-        <span>usual</span>
-        <span>+3σ</span>
+      <div className="pk-gauge-labels" aria-hidden="true">
+        <span>Unusually low</span>
+        <span>Usual</span>
+        <span>Unusually high</span>
       </div>
     </div>
   )
@@ -205,16 +227,8 @@ export function PairCheck({
           <i style={{ background: productColor(b) }} />
         </span>
       </div>
-      <SigmaScale z={hasRanks ? selected.z : null} />
+      <UsualGauge z={hasRanks ? selected.z : null} span={span} />
       <dl className="pk-rows">
-        <div>
-          <dt>vs usual</dt>
-          <dd>
-            {hasRanks && finite(selected.z)
-              ? `${selected.z > 0 ? '+' : '−'}${Math.abs(selected.z).toFixed(2)}σ`
-              : 'Needs more history'}
-          </dd>
-        </div>
         {rank && (
           <div>
             <dt>Rank</dt>
@@ -261,15 +275,22 @@ export function PairCheck({
 }
 
 /* -------------------------------------------------------------------------- */
-/* Gap trend: gradient area for one pair                                      */
+/* Gap trend: one pair's gap, drawn exactly (no smoothing)                    */
 /* -------------------------------------------------------------------------- */
+
+/** Round axis labels to a sensible rupee step. */
+const tidy = (value: number) => {
+  const size = Math.abs(value)
+  const step = size >= 1000 ? 50 : size >= 200 ? 10 : size >= 50 ? 5 : 1
+  return Math.round(value / step) * step
+}
 
 export function GapTrend({
   points,
 }: {
   points: { trade_date: string; spread_abs: number | null }[]
 }) {
-  const id = useId().replace(/:/g, '')
+  const [hover, setHover] = useState<number | null>(null)
   const values = points.filter((point) => finite(point.spread_abs)) as {
     trade_date: string
     spread_abs: number
@@ -278,63 +299,128 @@ export function GapTrend({
     return (
       <p className="ui-muted-note">Gap history appears after two sessions.</p>
     )
-  const width = 320
-  const height = 120
-  const min = Math.min(...values.map((p) => p.spread_abs))
-  const max = Math.max(...values.map((p) => p.spread_abs))
-  const range = max - min || 1
-  const coords = values.map((point, index) => [
-    6 + (index / (values.length - 1)) * (width - 12),
-    height - 8 - ((point.spread_abs - min) / range) * (height - 20),
-  ])
-  // Smooth curve through the points (Catmull-Rom → Bézier).
-  let line = `M${coords[0][0].toFixed(1)},${coords[0][1].toFixed(1)}`
-  for (let i = 0; i < coords.length - 1; i += 1) {
-    const p0 = coords[i - 1] ?? coords[i]
-    const p1 = coords[i]
-    const p2 = coords[i + 1]
-    const p3 = coords[i + 2] ?? p2
-    const c1 = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6]
-    const c2 = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6]
-    line += ` C${c1[0].toFixed(1)},${c1[1].toFixed(1)} ${c2[0].toFixed(1)},${c2[1].toFixed(1)} ${p2[0].toFixed(1)},${p2[1].toFixed(1)}`
-  }
-  const area = `${line} L${width},${height} L0,${height} Z`
+  const nums = values.map((p) => p.spread_abs)
+  const mean = nums.reduce((sum, v) => sum + v, 0) / nums.length
+  const sd = Math.sqrt(
+    nums.reduce((sum, v) => sum + (v - mean) ** 2, 0) / nums.length,
+  )
+  const lo = Math.min(...nums, mean - sd)
+  const hi = Math.max(...nums, mean + sd)
+  const pad = (hi - lo || Math.abs(hi) || 1) * 0.1
+  const min = lo - pad
+  const max = hi + pad
+  const width = 300
+  const height = 150
+  const x = (index: number) => (index / (values.length - 1)) * width
+  const y = (value: number) => ((max - value) / (max - min)) * height
+  const pct = (value: number, total: number) => `${(value / total) * 100}%`
+  const line = values
+    .map(
+      (p, i) =>
+        `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(p.spread_abs).toFixed(1)}`,
+    )
+    .join(' ')
   const first = values[0]
   const last = values.at(-1)!
   const change = last.spread_abs - first.spread_abs
-  const [endX, endY] = coords.at(-1)!
+  const ticks = [max - pad, (max + min) / 2, min + pad]
+  const active = hover === null ? null : values[hover]
   return (
-    <div className="gt">
-      <div className="gt-plot">
-        <svg
-          viewBox={`0 0 ${width} ${height}`}
-          preserveAspectRatio="none"
-          role="img"
-          aria-label={`Gap moved from ${signedInr(first.spread_abs)} to ${signedInr(last.spread_abs)}`}
-        >
-          <defs>
-            <linearGradient id={`gt-${id}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stopColor="var(--aqua)" stopOpacity="0.28" />
-              <stop offset="1" stopColor="var(--aqua)" stopOpacity="0" />
-            </linearGradient>
-          </defs>
-          <path d={area} fill={`url(#gt-${id})`} />
-          <path
-            d={line}
-            fill="none"
-            stroke="var(--aqua)"
-            strokeWidth="2"
-            vectorEffect="non-scaling-stroke"
-          />
-        </svg>
-        <span
-          className="gt-dot"
-          aria-hidden="true"
-          style={{
-            left: `${(endX / width) * 100}%`,
-            top: `${(endY / height) * 100}%`,
+    <div className="gt gt-honest">
+      <div className="gt-frame">
+        <div className="gt-axis" aria-hidden="true">
+          {ticks.map((tick) => (
+            <span key={tick} style={{ top: pct(y(tick), height) }}>
+              {signedInr(tidy(tick))}
+            </span>
+          ))}
+        </div>
+        <div
+          className="gt-plot"
+          onPointerMove={(event) => {
+            const rect = event.currentTarget.getBoundingClientRect()
+            const ratio = (event.clientX - rect.left) / rect.width
+            const index = Math.round(ratio * (values.length - 1))
+            setHover(Math.max(0, Math.min(values.length - 1, index)))
           }}
-        />
+          onPointerLeave={() => setHover(null)}
+        >
+          <svg
+            viewBox={`0 0 ${width} ${height}`}
+            preserveAspectRatio="none"
+            role="img"
+            aria-label={`Gap moved from ${signedInr(first.spread_abs)} to ${signedInr(last.spread_abs)} over ${values.length} sessions; typical range ${signedInr(tidy(mean - sd))} to ${signedInr(tidy(mean + sd))}`}
+          >
+            {ticks.map((tick) => (
+              <line
+                key={tick}
+                className="gt-grid"
+                x1="0"
+                x2={width}
+                y1={y(tick)}
+                y2={y(tick)}
+                vectorEffect="non-scaling-stroke"
+              />
+            ))}
+            <rect
+              className="gt-band"
+              x="0"
+              width={width}
+              y={y(mean + sd)}
+              height={Math.max(0, y(mean - sd) - y(mean + sd))}
+            />
+            <line
+              className="gt-mean"
+              x1="0"
+              x2={width}
+              y1={y(mean)}
+              y2={y(mean)}
+              vectorEffect="non-scaling-stroke"
+            />
+            <path
+              d={line}
+              fill="none"
+              stroke="var(--aqua)"
+              strokeWidth="2"
+              strokeLinejoin="round"
+              vectorEffect="non-scaling-stroke"
+            />
+          </svg>
+          {values.map((p, i) => (
+            <i
+              key={p.trade_date}
+              className={`gt-point ${i === values.length - 1 ? 'is-last' : ''} ${i === hover ? 'is-hover' : ''}`}
+              aria-hidden="true"
+              style={{
+                left: pct(x(i), width),
+                top: pct(y(p.spread_abs), height),
+              }}
+            />
+          ))}
+          {active && hover !== null && (
+            <div
+              className={`gt-tip ${hover > (values.length - 1) / 2 ? 'is-left' : ''}`}
+              style={{ left: pct(x(hover), width) }}
+            >
+              <span>{shortDate(active.trade_date)}</span>
+              <b>{signedInr(active.spread_abs)}</b>
+            </div>
+          )}
+        </div>
+      </div>
+      <div className="gt-legend" aria-hidden="true">
+        <span>
+          <i className="is-line" />
+          Gap
+        </span>
+        <span>
+          <i className="is-band" />
+          Typical range (±1σ)
+        </span>
+        <span>
+          <i className="is-mean" />
+          Average {signedInr(tidy(mean))}
+        </span>
       </div>
       <div className="gt-foot">
         <span>

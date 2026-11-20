@@ -680,3 +680,409 @@
   min-height: 40px;
   justify-content: center;
 }
+
+/* ===== Pair check: plain-English gauge ================================== */
+.pk-gauge {
+  display: grid;
+  gap: 8px;
+  padding: 2px 0 0;
+}
+.pk-gauge-head {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+}
+.pk-gauge-head strong {
+  color: var(--text-strong);
+  font-size: 15px;
+  font-weight: 600;
+}
+.pk-gauge-head strong.tone-low {
+  color: var(--low);
+}
+.pk-gauge-head strong.tone-high {
+  color: var(--high);
+}
+.pk-gauge-head span {
+  color: var(--text-3);
+  font-size: 12px;
+}
+.pk-gauge-track {
+  position: relative;
+  display: flex;
+  gap: 2px;
+  height: 8px;
+  margin: 4px 0 0;
+}
+.pk-gauge-track i {
+  height: 100%;
+  border-radius: 3px;
+  background: rgb(var(--ink-rgb) / 10%);
+}
+.pk-gauge-track i.is-low {
+  background: color-mix(in srgb, var(--low) 28%, transparent);
+}
+.pk-gauge-track i.is-low.is-strong {
+  background: color-mix(in srgb, var(--low) 55%, transparent);
+}
+.pk-gauge-track i.is-high {
+  background: color-mix(in srgb, var(--high) 28%, transparent);
+}
+.pk-gauge-track i.is-high.is-strong {
+  background: color-mix(in srgb, var(--high) 55%, transparent);
+}
+.pk-gauge-track b {
+  position: absolute;
+  top: 50%;
+  width: 16px;
+  height: 16px;
+  border: 3px solid var(--panel);
+  border-radius: 50%;
+  background: var(--text-strong);
+  box-shadow: 0 0 0 1px rgb(var(--ink-rgb) / 25%);
+  transform: translate(-50%, -50%);
+}
+.pk-gauge-track b.is-low {
+  background: var(--low);
+}
+.pk-gauge-track b.is-high {
+  background: var(--high);
+}
+.pk-gauge-labels {
+  display: flex;
+  justify-content: space-between;
+  color: var(--text-3);
+  font-size: 11px;
+}
+.pk-gauge-note {
+  margin: 0;
+  color: var(--text-3);
+  font-size: 12.5px;
+}
+
+/* ===== Gap trend: honest chart ========================================== */
+.gt.gt-honest {
+  grid-template-rows: 1fr auto auto;
+}
+.gt-frame {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  min-height: 190px;
+}
+.gt-axis {
+  position: relative;
+}
+.gt-axis span {
+  position: absolute;
+  right: 8px;
+  color: var(--text-3);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  transform: translateY(-50%);
+}
+.gt-honest .gt-plot {
+  position: relative;
+  min-height: 190px;
+  cursor: crosshair;
+  touch-action: pan-y;
+}
+.gt-grid {
+  stroke: rgb(var(--ink-rgb) / 8%);
+  stroke-width: 1;
+}
+.gt-band {
+  fill: color-mix(in srgb, var(--aqua) 10%, transparent);
+}
+.gt-mean {
+  stroke: color-mix(in srgb, var(--aqua) 55%, transparent);
+  stroke-width: 1;
+  stroke-dasharray: 4 4;
+}
+.gt-point {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  margin: -2.5px 0 0 -2.5px;
+  border-radius: 50%;
+  background: var(--aqua);
+  opacity: 0.55;
+  pointer-events: none;
+}
+.gt-point.is-last,
+.gt-point.is-hover {
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  border: 2px solid var(--panel);
+  opacity: 1;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--aqua) 25%, transparent);
+}
+.gt-tip {
+  position: absolute;
+  top: 0;
+  display: grid;
+  gap: 1px;
+  padding: 6px 9px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--panel);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 18%);
+  font-size: 11.5px;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translateX(8px);
+}
+.gt-tip.is-left {
+  transform: translateX(calc(-100% - 8px));
+}
+.gt-tip span {
+  color: var(--text-3);
+}
+.gt-tip b {
+  color: var(--text-strong);
+  font-variant-numeric: tabular-nums;
+}
+.gt-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  padding-left: 58px;
+  color: var(--text-3);
+  font-size: 11.5px;
+}
+.gt-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.gt-legend i {
+  display: inline-block;
+  width: 14px;
+}
+.gt-legend i.is-line {
+  height: 2px;
+  background: var(--aqua);
+}
+.gt-legend i.is-band {
+  height: 10px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--aqua) 18%, transparent);
+}
+.gt-legend i.is-mean {
+  height: 0;
+  border-top: 1px dashed color-mix(in srgb, var(--aqua) 70%, transparent);
+}
+
+/* ===== Guest welcome strip ============================================== */
+.db-welcome {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 10px 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--amber) 8%, transparent),
+      transparent 60%
+    ),
+    var(--panel);
+}
+.db-welcome .crow {
+  flex: none;
+}
+.db-welcome p {
+  flex: 1;
+  margin: 0;
+  color: var(--text-2);
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+.db-welcome b {
+  color: var(--text-strong);
+  font-weight: 600;
+}
+.shell .db-welcome-cta {
+  flex: none;
+  min-height: 34px;
+  padding: 0 14px;
+  font-size: 13px;
+}
+.db-welcome-close {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-3);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+.db-welcome-close:hover {
+  background: rgb(var(--ink-rgb) / 6%);
+  color: var(--text);
+}
+
+/* ===== Phone sticky price bar (hidden on larger screens) ================ */
+.db-mbar {
+  display: none;
+}
+
+/* ===== Phones ============================================================ */
+@media (max-width: 760px) {
+  /* Toolbar: one row that scrolls sideways instead of wrapping. */
+  .db-toolbar,
+  .db-toolbar-right {
+    flex-wrap: nowrap;
+  }
+  .db-toolbar {
+    overflow-x: auto;
+    margin: 0 -4px;
+    padding: 0 4px 2px;
+    scrollbar-width: none;
+  }
+  .db-toolbar::-webkit-scrollbar {
+    display: none;
+  }
+  .db-toolbar > *,
+  .db-toolbar-right > * {
+    flex: none;
+  }
+
+  /* Comparisons: one card per pair. */
+  .db-pairs thead {
+    display: none;
+  }
+  .db-pairs,
+  .db-pairs tbody {
+    display: block;
+  }
+  .db-pairs tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 6px 12px;
+    padding: 12px 4px;
+    border-bottom: 1px solid var(--line);
+  }
+  .db-pairs td {
+    display: block;
+    padding: 0 !important;
+    border: 0 !important;
+    background: none !important;
+  }
+  .db-pairs td.hide-sm {
+    display: none;
+  }
+  .db-pairs .ov-pair-cell {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .db-pairs td.num[data-label='Gap'] {
+    grid-column: 2;
+    grid-row: 1;
+    color: var(--text-strong);
+    font-size: 15px;
+    font-weight: 600;
+  }
+  .db-pairs td.num[data-label]:not([data-label='Gap']) {
+    grid-column: 2;
+    grid-row: 2;
+    font-size: 12.5px;
+  }
+  .db-pairs td.num[data-label]:not([data-label='Gap'])::before {
+    content: attr(data-label) ' ';
+    color: var(--text-3);
+    font-weight: 400;
+  }
+  .db-pairs td:nth-child(4) {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  .db-pairs tr.is-selected {
+    border-radius: 10px;
+    background: rgb(var(--ink-rgb) / 4%);
+    box-shadow: inset 2px 0 0 var(--aqua);
+  }
+  .shell-content .db-pairs tr.is-selected td,
+  .shell-content .db-pairs tr.is-selected td:first-child {
+    background: none !important;
+    box-shadow: none !important;
+  }
+
+  /* Sticky price bar under the top bar. */
+  .db-mbar {
+    position: fixed;
+    top: var(--nav-h);
+    right: 0;
+    left: 0;
+    z-index: 60;
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--line);
+    background: color-mix(in srgb, var(--bg) 92%, transparent);
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+    transform: translateY(-110%);
+    opacity: 0;
+    transition:
+      transform 0.2s ease,
+      opacity 0.2s ease;
+    pointer-events: none;
+  }
+  .db-mbar.is-shown {
+    transform: none;
+    opacity: 1;
+  }
+  .db-mbar strong {
+    color: var(--text-2);
+    font-weight: 600;
+  }
+  .db-mbar span {
+    color: var(--text-strong);
+    font-size: 15px;
+    font-weight: 600;
+  }
+  .db-mbar .tone-up {
+    color: var(--up);
+  }
+  .db-mbar .tone-down {
+    color: var(--down);
+  }
+  .db-mbar-live {
+    margin-left: auto;
+    color: var(--up);
+    font-size: 11px;
+    font-style: normal;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  /* Welcome strip wraps neatly. */
+  .db-welcome {
+    flex-wrap: wrap;
+  }
+  .db-welcome p {
+    flex-basis: calc(100% - 90px);
+  }
+  .shell .db-welcome-cta {
+    order: 3;
+    width: 100%;
+    justify-content: center;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .db-mbar {
+    transition: none;
+  }
+}

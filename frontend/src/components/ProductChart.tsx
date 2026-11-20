@@ -157,6 +157,33 @@ export default function ProductChart({
     })
   const last = [...rows].reverse().find((row) => typeof row.value === 'number')
   const maxVolume = Math.max(0, ...rows.map((row) => row.volume ?? 0))
+  // Price fills the upper part; volume stays in the bottom fifth, so the
+  // two never overlap and the line never touches the frame.
+  const plotted = rows.flatMap((row) =>
+    [row.value, ...others.map((o) => row[o])].filter(
+      (v): v is number => typeof v === 'number' && Number.isFinite(v),
+    ),
+  )
+  const low = plotted.length ? Math.min(...plotted) : 0
+  const high = plotted.length ? Math.max(...plotted) : 1
+  const spread = high - low || Math.abs(high) * 0.02 || 1
+  const valueDomain: [number, number] = [
+    Math.max(0, low - spread * (showVolume ? 0.32 : 0.08)),
+    high + spread * 0.08,
+  ]
+  // Round, evenly spaced ticks inside the price zone only (not the volume zone).
+  const rough = spread / 5
+  const magnitude = 10 ** Math.floor(Math.log10(rough || 1))
+  const step =
+    [1, 2, 2.5, 5, 10].map((m) => m * magnitude).find((v) => v >= rough) ??
+    10 * magnitude
+  const valueTicks: number[] = []
+  for (
+    let tick = Math.ceil((low - spread * 0.04) / step) * step;
+    tick <= valueDomain[1];
+    tick += step
+  )
+    valueTicks.push(Number(tick.toFixed(6)))
   const color = compare ? productColor(product) : 'var(--text-strong)'
   const yearChange =
     rows.length > 1 && rows[0].date.slice(0, 4) !== lastDay?.slice(0, 4)
@@ -177,7 +204,7 @@ export default function ProductChart({
       <ResponsiveContainer width="100%" height="100%">
         <ComposedChart
           data={rows}
-          margin={{ top: 8, right: 0, left: 0, bottom: 0 }}
+          margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
           barCategoryGap={1}
         >
           <CartesianGrid stroke={GRID} vertical={false} />
@@ -199,7 +226,10 @@ export default function ProductChart({
             axisLine={false}
             width={62}
             tick={{ fontSize: 11 }}
-            domain={['auto', 'auto']}
+            domain={valueDomain}
+            ticks={valueTicks}
+            interval={0}
+            allowDataOverflow
             tickFormatter={metric === 'price' ? compactInr : kg}
           />
           <YAxis
@@ -208,10 +238,9 @@ export default function ProductChart({
             stroke={AXIS}
             tickLine={false}
             axisLine={false}
-            width={showVolume ? 54 : 0}
-            tick={showVolume ? { fontSize: 11 } : false}
-            domain={[0, Math.max(maxVolume * 3, 1)]}
-            tickFormatter={kg}
+            width={0}
+            tick={false}
+            domain={[0, Math.max(maxVolume * 5, 1)]}
           />
           <Tooltip
             cursor={{
@@ -231,7 +260,7 @@ export default function ProductChart({
               yAxisId="volume"
               dataKey="volume"
               fill="var(--lavender)"
-              fillOpacity={0.5}
+              fillOpacity={0.7}
               radius={[2, 2, 0, 0]}
               isAnimationActive={false}
             />
