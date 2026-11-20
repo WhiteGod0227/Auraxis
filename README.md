@@ -33,6 +33,9 @@ explains what stands out in plain English, and backtests a simple
 - **Practice with demo money** — every account gets ◎ 10,00,000 of practice
   money (no cash value) to trade gaps or single products at live prices, with
   open P&L, history, achievements and an opt-in leaderboard.
+- **On-chain gold** — tokenized gold (PAXG, XAUT) read from Ethereum and
+  compared with all four MCX products at India parity (incl. import duty),
+  with a year of daily gap history.
 - **Light & dark themes**, a trading-style top bar with search (press `/`) and an animated crow mascot
   (which can also be your mouse pointer).
 
@@ -142,6 +145,17 @@ margin and pay the same 5 bps per leg per side as the backtest. Pair trades
 cover the three same-expiry pairs; GOLDM is practised on its own. Demo money
 has no cash value and cannot be bought, withdrawn or transferred. Data lives
 in `backend/practice.sqlite3` (git-ignored); users can reset any time.
+
+### On-chain gold (read-only Web3)
+
+**More → On-chain gold** compares tokenized gold with MCX. Each PAXG (Paxos)
+or XAUT (Tether) token is one fine troy ounce on Ethereum. The backend reads
+token prices every minute (CoinGecko) and each token's circulating supply
+directly from its ERC-20 contract on Ethereum mainnet (`totalSupply`,
+`decimals` over JSON-RPC). Parity per 10 g = token price ÷ 31.1035 g × 10 ×
+(1 + India's import duty on that date; see `ONCHAIN_DUTY_SCHEDULE`). A year of
+daily token prices is paired with MCX settlements for the gap history.
+Read-only: no wallet, key or transaction is involved.
 
 ### Live prices during market hours
 

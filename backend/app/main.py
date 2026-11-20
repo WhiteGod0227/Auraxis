@@ -16,12 +16,14 @@ from app.api.data_refresh import router as data_router
 from app.api.foundation import router as foundation_router
 from app.api.health import router as health_router
 from app.api.live import router as live_router
+from app.api.onchain import router as onchain_router
 from app.api.practice import router as practice_router
 from app.api.security import router as security_router
 from app.api.workspaces import router as workspace_router
 from app.core.config import get_settings
 from app.core.logging import setup_logging
 from app.data.live import service as live_service
+from app.data.onchain import service as onchain_service
 from app.data.watcher import watch_loop
 
 setup_logging()
@@ -35,6 +37,8 @@ async def lifespan(_app: FastAPI):
         tasks.append(asyncio.create_task(auto_refresh_loop(settings)))
     if settings.upstox_access_token.strip() and settings.live_poll_seconds > 0:
         tasks.append(asyncio.create_task(live_service.run(settings)))
+    if settings.onchain_enabled:
+        tasks.append(asyncio.create_task(onchain_service.run(settings)))
     if settings.bhavcopy_watch:
         tasks.append(asyncio.create_task(watch_loop(settings)))
     try:
@@ -66,6 +70,7 @@ app.include_router(security_router)
 app.include_router(data_router)
 app.include_router(live_router)
 app.include_router(practice_router)
+app.include_router(onchain_router)
 
 
 @app.middleware("http")

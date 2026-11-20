@@ -5,6 +5,7 @@ import os
 os.environ["UPSTOX_ACCESS_TOKEN"] = ""
 os.environ["AUTO_REFRESH_HOURS"] = "0"
 os.environ["LIVE_POLL_SECONDS"] = "0"
+os.environ["ONCHAIN_ENABLED"] = "false"
 os.environ["GOOGLE_CLIENT_ID"] = ""
 os.environ["DATA_ADMIN_EMAILS"] = ""
 os.environ["BHAVCOPY_WATCH"] = "false"

@@ -64,6 +64,7 @@ const links: NavItem[] = [
 ]
 
 const learn: NavAction[] = [
+  { to: '/app/onchain', label: 'On-chain gold' },
   { to: '/app/methodology', label: 'Methodology' },
   { to: '/app/demo', label: 'Guided tour' },
   { label: 'Present demo', action: () => presenter.start() },
@@ -107,6 +108,7 @@ const NO_DATA_OK = [
   '/app/profile',
   '/app/research',
   '/app/practice',
+  '/app/onchain',
   '/app/security',
   '/app/recover',
   '/app/methodology',

@@ -228,7 +228,7 @@ function More({ items }: { items: NavAction[] }) {
   return (
     <details className="tn-more" ref={menu}>
       <summary>
-        Learn
+        More
         <svg viewBox="0 0 12 12" width="10" height="10" aria-hidden="true">
           <path
             d="m2.5 4.5 3.5 3.5 3.5-3.5"
@@ -365,7 +365,7 @@ export default function TopNav({
             {item.label}
           </Link>
         ))}
-        <p>Learn</p>
+        <p>More</p>
         {more.map((item) =>
           item.action ? (
             <button

@@ -1,3 +1,4 @@
+from datetime import date
 from functools import lru_cache
 from pathlib import Path
 from typing import Annotated, Literal
@@ -112,6 +113,20 @@ class Settings(BaseSettings):
     practice_start_balance: float = Field(default=1_000_000, gt=0, le=1e9)
     practice_margin_pct: float = Field(default=10, gt=0, le=100)
     practice_cost_bps: float = Field(default=5, ge=0, le=100)
+    # On-chain gold (read-only Web3 data): tokenized gold vs MCX.
+    onchain_enabled: bool = True
+    onchain_poll_seconds: float = Field(default=60, ge=30, le=3600)
+    onchain_price_api: str = "https://api.coingecko.com/api/v3"
+    onchain_rpc_url: str = "https://ethereum-rpc.publicnode.com"
+    onchain_database_path: Path = Path("./onchain.sqlite3")
+    # India's gold import duty (%) by effective date; parity uses the rate in
+    # force on each day. 15% (12.5 + 2.5) until the July 2024 cut to 6%
+    # (5 + 1); raised to 15% (10 + 5 AIDC) from 13 May 2026.
+    onchain_duty_schedule: dict[str, float] = {
+        "2000-01-01": 15.0,
+        "2024-07-24": 6.0,
+        "2026-05-13": 15.0,
+    }
     # Auto-import MCX Bhavcopy CSVs that appear in a folder (default: Downloads).
     bhavcopy_watch: bool = False
     bhavcopy_watch_dir: Path | None = None
@@ -142,6 +157,17 @@ class Settings(BaseSettings):
             and int(minutes) < 60
         ):
             raise ValueError("Session times must use 24-hour HH:MM")
+        return value
+
+    @field_validator("onchain_duty_schedule")
+    @classmethod
+    def check_duty_schedule(cls, value: dict[str, float]) -> dict[str, float]:
+        if not value:
+            raise ValueError("ONCHAIN_DUTY_SCHEDULE needs at least one entry")
+        for day, pct in value.items():
+            date.fromisoformat(day)
+            if not 0 <= pct <= 100:
+                raise ValueError("Import duty must be between 0 and 100 %")
         return value
 
     @model_validator(mode="after")
