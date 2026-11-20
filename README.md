@@ -294,6 +294,8 @@ original private dataset and need its exported snapshots.
 ## More documentation
 
 - [Methodology](frontend/src/pages/MethodologyPage.tsx) — also in the app under *Methodology*
+- [User guide](docs/USER_GUIDE.md)
+- [Web3 and blockchain](docs/WEB3.md) — every on-chain feature, how it works and how to verify it
 - [Demo script](docs/HACKATHON_DEMO.md)
 - [Deployment](docs/DEPLOYMENT.md)
 - [Account security and alert sync](docs/ACCOUNT_SECURITY_AND_SYNC.md)
