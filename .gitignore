@@ -52,3 +52,6 @@ frontend/public/snapshots/
 **/debug-profile/
 .tmp/
 tmp/
+
+# Vercel CLI project link
+.vercel
