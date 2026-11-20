@@ -18,10 +18,12 @@ from app.api.health import router as health_router
 from app.api.live import router as live_router
 from app.api.onchain import router as onchain_router
 from app.api.practice import router as practice_router
+from app.api.proofs import router as proofs_router
 from app.api.security import router as security_router
 from app.api.workspaces import router as workspace_router
 from app.core.config import get_settings
 from app.core.logging import setup_logging
+from app.data import proofs as proofs_service
 from app.data.live import service as live_service
 from app.data.onchain import service as onchain_service
 from app.data.watcher import watch_loop
@@ -39,6 +41,8 @@ async def lifespan(_app: FastAPI):
         tasks.append(asyncio.create_task(live_service.run(settings)))
     if settings.onchain_enabled:
         tasks.append(asyncio.create_task(onchain_service.run(settings)))
+    if settings.proofs_enabled:
+        tasks.append(asyncio.create_task(proofs_service.run(settings)))
     if settings.bhavcopy_watch:
         tasks.append(asyncio.create_task(watch_loop(settings)))
     try:
@@ -71,6 +75,7 @@ app.include_router(data_router)
 app.include_router(live_router)
 app.include_router(practice_router)
 app.include_router(onchain_router)
+app.include_router(proofs_router)
 
 
 @app.middleware("http")
@@ -83,6 +88,7 @@ async def private_workspace_responses(request, call_next):
             "/api/alerts",
             "/api/auth/security",
             "/api/practice",
+            "/api/proofs",
         )
     ):
         response.headers["Cache-Control"] = "private, no-store"
@@ -169,6 +175,7 @@ async def unexpected_error(request, exc):
             "/api/alerts",
             "/api/auth/security",
             "/api/practice",
+            "/api/proofs",
         )
     ):
         response.headers["Cache-Control"] = "private, no-store"

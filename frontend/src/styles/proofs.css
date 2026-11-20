@@ -1,0 +1,288 @@
+/* Proof of research page. Builds on dashboard.css. */
+.pf-intro {
+  max-width: 820px;
+  margin: -6px 0 0;
+  color: var(--text-2);
+  font-size: 14px;
+  line-height: 1.6;
+}
+.pf-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.pf-steps li {
+  display: flex;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel);
+}
+.pf-steps b {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--amber) 22%, transparent);
+  color: var(--amber);
+  font-size: 12px;
+}
+.pf-steps span {
+  color: var(--text-2);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.pf-steps strong {
+  display: block;
+  color: var(--text-strong);
+  font-size: 14px;
+}
+.pf-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgb(var(--ink-rgb) / 7%);
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.pf-chip i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.pf-chip.is-pending,
+.pf-chip.is-submitting {
+  background: color-mix(in srgb, var(--amber) 14%, transparent);
+  color: var(--amber);
+}
+.pf-chip.is-confirmed {
+  background: color-mix(in srgb, var(--up) 14%, transparent);
+  color: var(--up);
+}
+.pf-chip.is-failed {
+  background: color-mix(in srgb, var(--down) 14%, transparent);
+  color: var(--down);
+}
+.pf-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.pf-list li {
+  border-top: 1px solid var(--line);
+}
+.pf-list li:first-child {
+  border-top: 0;
+}
+.pf-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 4px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.pf-row:hover .pf-title strong {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.pf-title {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.pf-title strong {
+  color: var(--text-strong);
+  font-size: 14px;
+  font-weight: 600;
+}
+.pf-title small {
+  color: var(--text-3);
+  font-size: 12px;
+}
+.pf-detail {
+  display: grid;
+  gap: 12px;
+  margin: 0 0 14px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgb(var(--ink-rgb) / 3%);
+}
+.pf-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 20px;
+  margin: 0;
+}
+.pf-facts dt {
+  color: var(--text-3);
+  font-size: 12px;
+}
+.pf-facts dd {
+  margin: 2px 0 0;
+  color: var(--text);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.pf-facts code {
+  font-size: 12.5px;
+}
+.pf-facts a {
+  color: var(--text);
+}
+.pf-downloads {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.shell .pf-downloads .ui-button {
+  min-height: 36px;
+  padding: 0 14px;
+  font-size: 13px;
+}
+.pf-hint {
+  margin: 0;
+  color: var(--text-3);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+.pf-hint a {
+  color: var(--text-2);
+}
+.pf-verify {
+  display: grid;
+  gap: 10px;
+}
+.pf-drop {
+  position: relative;
+  display: grid;
+  gap: 2px;
+  padding: 16px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 14px;
+  text-align: center;
+  cursor: pointer;
+}
+.pf-drop:hover {
+  border-color: var(--text-3);
+}
+.pf-drop input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.pf-drop strong {
+  color: var(--text-strong);
+  font-size: 14px;
+}
+.pf-drop span {
+  color: var(--text-3);
+  font-size: 12.5px;
+}
+.pf-verify textarea {
+  width: 100%;
+  min-height: 96px;
+  padding: 10px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  background: rgb(var(--ink-rgb) / 3%);
+  color: var(--text);
+  font:
+    12.5px/1.5 ui-monospace,
+    SFMono-Regular,
+    Consolas,
+    monospace;
+  resize: vertical;
+}
+.shell .pf-verify .ui-button {
+  justify-self: start;
+}
+.pf-result {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 14px;
+  border-radius: 14px;
+}
+.pf-result.is-valid {
+  background: color-mix(in srgb, var(--up) 9%, transparent);
+}
+.pf-result.is-invalid {
+  background: color-mix(in srgb, var(--down) 9%, transparent);
+}
+.pf-result > strong {
+  color: var(--text-strong);
+}
+.pf-result ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.pf-result li {
+  display: flex;
+  gap: 8px;
+  color: var(--text-2);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.pf-result li i {
+  flex: none;
+  width: 18px;
+  font-style: normal;
+  font-weight: 700;
+}
+.pf-result li.ok i {
+  color: var(--up);
+}
+.pf-result li.no i {
+  color: var(--down);
+}
+.pf-result b {
+  color: var(--text);
+}
+.pf-signedout {
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+}
+.pf-signedout p {
+  margin: 0;
+  color: var(--text-2);
+}
+.research-certify {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-3);
+  font-size: 12.5px;
+}
+@media (max-width: 760px) {
+  .pf-steps,
+  .pf-facts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

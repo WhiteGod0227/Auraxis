@@ -91,6 +91,7 @@ export function safeReturn(value: string | null) {
       '/app/research',
       '/app/import',
       '/app/practice',
+      '/app/proofs',
       '/app',
       ...Object.values(researchRoutes),
     ]

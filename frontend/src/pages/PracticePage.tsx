@@ -552,7 +552,10 @@ function History({ summary }: { summary: PracticeSummary }) {
     <section className="ui-card" aria-labelledby="history-title">
       <div className="ui-card-head">
         <h2 id="history-title">History</h2>
-        <p>Last {summary.history.length} closed trades · after costs</p>
+        <p>
+          Last {summary.history.length} closed trades · after costs ·{' '}
+          <Link to="/app/proofs">Bitcoin proofs →</Link>
+        </p>
       </div>
       <div className="ui-table-scroll">
         <table className="ui-table">

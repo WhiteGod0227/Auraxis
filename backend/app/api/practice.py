@@ -660,6 +660,26 @@ def summary(db, user: dict, market: Market, settings: Settings) -> dict:
     )
 
 
+def _certify_closed(settings: Settings, user_id: int, ids=None) -> None:
+    """Fingerprint closed trades for proof of research (after commit)."""
+    from app.api.proofs import certify_trades
+
+    with database(settings) as db:
+        if ids:
+            rows = db.execute(
+                f"SELECT * FROM positions WHERE user_id=? AND status='closed' "
+                f"AND id IN ({','.join('?' * len(ids))})",
+                (user_id, *ids),
+            ).fetchall()
+        else:
+            rows = db.execute(
+                "SELECT * FROM positions WHERE user_id=? AND status='closed' "
+                "ORDER BY id DESC LIMIT 100",
+                (user_id,),
+            ).fetchall()
+    certify_trades(settings, user_id, rows)
+
+
 # --------------------------------------------------------------------------- #
 # Routes
 # --------------------------------------------------------------------------- #
@@ -680,6 +700,8 @@ def practice_summary(
         except BaseException:
             db.execute("ROLLBACK")
             raise
+    # Includes trades auto-closed at expiry during this summary.
+    _certify_closed(settings, user["id"])
     return result
 
 
@@ -842,6 +864,7 @@ def close_position(
         except BaseException:
             db.execute("ROLLBACK")
             raise
+    _certify_closed(settings, user["id"], [position_id])
     return dict(id=position_id, **result)
 
 

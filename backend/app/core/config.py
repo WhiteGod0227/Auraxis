@@ -122,6 +122,17 @@ class Settings(BaseSettings):
     # India's gold import duty (%) by effective date; parity uses the rate in
     # force on each day. 15% (12.5 + 2.5) until the July 2024 cut to 6%
     # (5 + 1); raised to 15% (10 + 5 AIDC) from 13 May 2026.
+    # Proof of research: salted fingerprints sealed into Merkle roots and
+    # timestamped in Bitcoin via OpenTimestamps (free, no wallet).
+    proofs_enabled: bool = True
+    proofs_database_path: Path = Path("./proofs.sqlite3")
+    proofs_batch_minutes: float = Field(default=60, ge=5, le=10080)
+    proofs_calendars: Annotated[list[str], NoDecode] = [
+        "https://a.pool.opentimestamps.org",
+        "https://b.pool.opentimestamps.org",
+        "https://a.pool.eternitywall.com",
+    ]
+    proofs_block_explorer: str = "https://blockstream.info/api"
     onchain_duty_schedule: dict[str, float] = {
         "2000-01-01": 15.0,
         "2024-07-24": 6.0,
@@ -177,7 +188,11 @@ class Settings(BaseSettings):
         return self
 
     @field_validator(
-        "cors_origins", "bhavcopy_symbols", "data_admin_emails", mode="before"
+        "cors_origins",
+        "bhavcopy_symbols",
+        "data_admin_emails",
+        "proofs_calendars",
+        mode="before",
     )
     @classmethod
     def parse_csv_values(cls, value: str | list[str]) -> list[str]:

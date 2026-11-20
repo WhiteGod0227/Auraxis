@@ -6,12 +6,50 @@ import { useResource } from '@/lib/useResource'
 import { workspaceRoute, workspaces } from '@/lib/workspaces'
 import type { Workspace, WorkspaceList } from '@/lib/workspaces'
 import { session } from '@/lib/auth'
+import { proofsApi } from '@/lib/proofs'
+import '@/styles/proofs.css'
 
 const typeLabels = {
   relative_value: 'Relative Value',
   term_structure: 'Term Structure',
   backtest: 'Backtest',
 }
+/** Certify this revision on Bitcoin (OpenTimestamps) via the proof service. */
+function CertifyButton({ workspace }: { workspace: Workspace }) {
+  const [state, setState] = useState<'idle' | 'busy' | 'done' | 'error'>('idle')
+  const [message, setMessage] = useState('')
+  const certify = async () => {
+    setState('busy')
+    try {
+      await proofsApi.certifyResearch(workspace.id)
+      setState('done')
+      setMessage(`Revision ${workspace.revision} certified.`)
+    } catch (e) {
+      setState('error')
+      setMessage(e instanceof Error ? e.message : 'Certification failed.')
+    }
+  }
+  return (
+    <div className="research-certify">
+      <button
+        type="button"
+        className="button"
+        disabled={state === 'busy'}
+        onClick={() => void certify()}
+        title="Prove this note existed now and is unchanged later"
+      >
+        {state === 'busy' ? 'Certifying…' : 'Certify on Bitcoin'}
+      </button>
+      {state === 'done' && (
+        <span>
+          {message} <Link to="/app/proofs">View proof</Link>
+        </span>
+      )}
+      {state === 'error' && <span role="alert">{message}</span>}
+    </div>
+  )
+}
+
 export function WorkspaceEditor({
   workspace,
   refresh,
@@ -60,6 +98,7 @@ export function WorkspaceEditor({
       <Link className="button" to={workspaceRoute(workspace)}>
         Open research
       </Link>
+      <CertifyButton workspace={workspace} />
       <details>
         <summary>Rename / edit notes</summary>
         <p>
