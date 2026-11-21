@@ -53,5 +53,8 @@ frontend/public/snapshots/
 .tmp/
 tmp/
 
+# Vercel CLI project link
+.vercel
+
 # Platform-specific local Python environments
 .venv-*/

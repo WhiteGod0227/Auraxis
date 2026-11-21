@@ -11,6 +11,7 @@ import ts from 'typescript'
 const require = createRequire(import.meta.url)
 const urls = {}
 for (const name of [
+  'env',
   'format',
   'relativeValue',
   'comparisonExplanation',

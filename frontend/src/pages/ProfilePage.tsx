@@ -12,6 +12,7 @@ import {
 import type { ProfileUser } from '@/lib/profile'
 import { createExclusiveAction } from '@/lib/workspaces'
 import SignOutButton from '@/components/SignOutButton'
+import WalletCard from '@/components/WalletCard'
 
 export function ProfileDetails({ profile }: { profile: ProfileUser }) {
   const { user } = useAccount()
@@ -160,7 +161,10 @@ export function ProfilePage() {
       {!account.checked ? (
         <p role="status">Checking account…</p>
       ) : account.user ? (
-        <LoadedProfile key={account.epoch} />
+        <>
+          <LoadedProfile key={account.epoch} />
+          <WalletCard />
+        </>
       ) : (
         <section className="panel">
           {account.error ? (

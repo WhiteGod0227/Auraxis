@@ -5,7 +5,9 @@ import Crow from '@/components/Crow'
 import { AuthError, auth, authProviders } from '@/lib/auth'
 import { safeReturn } from '@/lib/workspaces'
 import { passwordStrength } from '@/lib/passwordStrength'
+import { useLive } from '@/lib/live'
 import '@/styles/login.css'
+import '@/styles/auth-split.css'
 
 interface GoogleId {
   initialize: (options: {
@@ -90,12 +92,56 @@ function PasswordInput({
   )
 }
 
+const inr = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 })
+
+/** Small live MCX price strip for the brand panel; hidden until data arrives. */
+function AuthTicker() {
+  const { snapshot } = useLive()
+  const rows = (snapshot?.references ?? []).filter(
+    (r) => r.available && r.price_p10 != null,
+  )
+  if (!snapshot || !rows.length) return null
+  const live = snapshot.state === 'live'
+  return (
+    <div className="auth-ticker" aria-label="MCX gold prices">
+      <p className="auth-ticker-head">
+        <span className={live ? 'is-live' : ''}>
+          <i aria-hidden="true" />
+          {live ? 'Live' : 'Last session'}
+        </span>
+        per 10 g
+      </p>
+      <ul>
+        {rows.slice(0, 4).map((r) => (
+          <li key={r.product}>
+            <span>{r.product}</span>
+            <strong>₹{inr.format(r.price_p10 as number)}</strong>
+            {r.change_pct != null && (
+              <small className={r.change_pct < 0 ? 'is-down' : 'is-up'}>
+                {r.change_pct > 0 ? '+' : ''}
+                {r.change_pct.toFixed(2)}%
+              </small>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+const POINTS = [
+  ['Compare', 'All four MCX gold contracts on one scale, per 10 g.'],
+  ['Practise', 'Trade unusual gaps with demo money — no risk, no card.'],
+  ['Prove', 'Timestamp your research on Bitcoin, verifiable by anyone.'],
+] as const
+
 type Pending =
   | { kind: 'password'; email: string; password: string }
   | { kind: 'google'; credential: string }
 
 export function LoginPage() {
-  const [signup, setSignup] = useState(false)
+  const [params] = useSearchParams()
+  const [signup, setSignup] = useState(() => params.get('mode') === 'signup')
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
   const [pending, setPending] = useState<Pending | null>(null)
@@ -103,7 +149,6 @@ export function LoginPage() {
   const [googleClientId, setGoogleClientId] = useState<string | null>(null)
   const googleRefs = useRef<(HTMLDivElement | null)[]>([])
   const navigate = useNavigate()
-  const [params] = useSearchParams()
   const finish = () =>
     navigate(safeReturn(params.get('returnTo')), { replace: true })
 
@@ -243,184 +288,214 @@ export function LoginPage() {
     ) : null
 
   return (
-    <main className="auth-page">
-      <Link className="auth-brand" to="/" aria-label="Auraxis home">
-        AURAXIS
-      </Link>
-      <div className="auth-mascot">
-        <Crow
-          mood={pending ? 'guarding' : signup ? 'celebrating' : 'perched'}
-          size={150}
-        />
-      </div>
-      <div className="auth-container container">
-        <div className={`auth-form form ${signup ? 'is-signup' : ''}`}>
-          {[false, true].map((back) => (
-            <form
-              key={String(back)}
-              id={back ? 'signup-face' : 'login-face'}
-              className={back ? 'form_back' : 'form_front'}
-              aria-label={back ? 'Create account' : 'Login'}
-              aria-hidden={signup !== back}
-              inert={signup !== back}
-              onSubmit={submit}
-              onInvalid={(event) => {
-                const input = event.target
-                if (!(input instanceof HTMLInputElement)) return
-                setMessage(
-                  input.validity.valueMissing
-                    ? `Please enter your ${input.name === 'otp' ? 'code' : input.name}.`
-                    : input.name === 'email'
-                      ? 'Please enter a valid email address.'
-                      : input.validationMessage,
-                )
-              }}
-              method="post"
-              aria-busy={busy}
-              aria-describedby={message ? 'auth-error' : undefined}
-            >
-              {!back && pending ? (
-                <>
-                  <h1 className="form_details" tabIndex={-1}>
-                    Two-step verification
-                  </h1>
-                  <p className="auth-subtitle">
-                    Enter the 6-digit code from your authenticator app, or one
-                    of your saved recovery codes.
-                  </p>
-                  <label className="auth-field">
-                    Verification code
-                    <input
-                      className="input otp-input"
-                      name="otp"
-                      autoComplete="one-time-code"
-                      inputMode="text"
-                      placeholder="123 456"
-                      required
-                      maxLength={128}
-                      disabled={busy}
-                    />
-                  </label>
-                  <button className="btn" type="submit" disabled={busy}>
-                    {busy ? 'Verifying…' : 'Verify and continue'}
-                  </button>
-                  <button
-                    className="auth-link-button"
-                    type="button"
-                    disabled={busy}
-                    onClick={() => {
-                      setPending(null)
-                      setMessage('')
-                    }}
-                  >
-                    ← Use a different account
-                  </button>
-                </>
-              ) : (
-                <>
-                  <h1 className="form_details" tabIndex={-1}>
-                    {back ? 'Create your account' : 'Welcome back'}
-                  </h1>
-                  <p className="auth-subtitle">
-                    {back
-                      ? 'Save research, sync alerts and refresh live MCX data.'
-                      : 'Your gold research, one place.'}
-                  </p>
-                  {googleBlock(back ? 1 : 0)}
-                  {back && (
+    <main className="auth-page auth-split">
+      <aside className="auth-aside">
+        <Link className="auth-logo" to="/" aria-label="Auraxis home">
+          <Crow size={30} bar={false} mood="guarding" animated={false} />
+          <span>Auraxis</span>
+        </Link>
+        <div className="auth-pitch">
+          <p className="auth-kicker">MCX gold research</p>
+          <h2>Four gold contracts. One clear picture.</h2>
+          <AuthTicker />
+          <ul className="auth-points">
+            {POINTS.map(([title, text]) => (
+              <li key={title}>
+                <b>{title}</b>
+                <span>{text}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div className="auth-aside-crow" aria-hidden="true">
+          <Crow
+            mood={pending ? 'guarding' : signup ? 'celebrating' : 'perched'}
+            size={120}
+          />
+        </div>
+        <p className="auth-fine">Research tool · not investment advice</p>
+      </aside>
+      <section className="auth-main">
+        <div className="auth-container container">
+          <div className={`auth-form form ${signup ? 'is-signup' : ''}`}>
+            {[false, true].map((back) => (
+              <form
+                key={String(back)}
+                id={back ? 'signup-face' : 'login-face'}
+                className={back ? 'form_back' : 'form_front'}
+                aria-label={back ? 'Create account' : 'Login'}
+                aria-hidden={signup !== back}
+                inert={signup !== back}
+                onSubmit={submit}
+                onInvalid={(event) => {
+                  const input = event.target
+                  if (!(input instanceof HTMLInputElement)) return
+                  setMessage(
+                    input.validity.valueMissing
+                      ? `Please enter your ${input.name === 'otp' ? 'code' : input.name}.`
+                      : input.name === 'email'
+                        ? 'Please enter a valid email address.'
+                        : input.validationMessage,
+                  )
+                }}
+                method="post"
+                aria-busy={busy}
+                aria-describedby={message ? 'auth-error' : undefined}
+              >
+                {!back && pending ? (
+                  <>
+                    <h1 className="form_details" tabIndex={-1}>
+                      Two-step verification
+                    </h1>
+                    <p className="auth-subtitle">
+                      Enter the 6-digit code from your authenticator app, or one
+                      of your saved recovery codes.
+                    </p>
                     <label className="auth-field">
-                      Name
+                      Verification code
                       <input
-                        className="input"
-                        name="name"
-                        autoComplete="name"
-                        placeholder="Your name"
+                        className="input otp-input"
+                        name="otp"
+                        autoComplete="one-time-code"
+                        inputMode="text"
+                        placeholder="123 456"
                         required
-                        maxLength={100}
+                        maxLength={128}
                         disabled={busy}
                       />
                     </label>
-                  )}
-                  <label className="auth-field">
-                    Email
-                    <input
-                      className="input"
-                      name="email"
-                      type="email"
-                      autoComplete="email"
-                      placeholder="you@example.com"
-                      required
-                      maxLength={254}
-                      disabled={busy}
-                    />
-                  </label>
-                  <label className="auth-field">
-                    Password
-                    <PasswordInput
-                      name="password"
-                      autoComplete={back ? 'new-password' : 'current-password'}
-                      placeholder={
-                        back ? 'At least 8 characters' : 'Your password'
-                      }
-                      minLength={back ? 8 : undefined}
-                      disabled={busy}
-                      onChange={
-                        back
-                          ? (value) => setStrength(passwordStrength(value))
-                          : undefined
-                      }
-                    />
-                    {back && strength.label && (
-                      <span
-                        className="strength"
-                        data-score={strength.score}
-                        aria-live="polite"
-                      >
-                        <span className="strength-bars" aria-hidden="true">
-                          {[1, 2, 3, 4].map((bar) => (
-                            <span
-                              key={bar}
-                              className={bar <= strength.score ? 'on' : ''}
-                            />
-                          ))}
-                        </span>
-                        {strength.label}
-                      </span>
-                    )}
-                  </label>
-                  <button className="btn" type="submit" disabled={busy}>
-                    {busy ? 'Please wait…' : back ? 'Create account' : 'Log in'}
-                  </button>
-                  <p className="switch">
-                    {back ? 'Already have an account?' : 'New to Auraxis?'}{' '}
-                    <button
-                      className="signup_tog"
-                      type="button"
-                      onClick={switchFace}
-                      aria-controls={back ? 'login-face' : 'signup-face'}
-                      disabled={busy}
-                    >
-                      {back ? 'Log in' : 'Sign up'}
+                    <button className="btn" type="submit" disabled={busy}>
+                      {busy ? 'Verifying…' : 'Verify and continue'}
                     </button>
+                    <button
+                      className="auth-link-button"
+                      type="button"
+                      disabled={busy}
+                      onClick={() => {
+                        setPending(null)
+                        setMessage('')
+                      }}
+                    >
+                      ← Use a different account
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <h1 className="form_details" tabIndex={-1}>
+                      {back ? 'Create your account' : 'Welcome back'}
+                    </h1>
+                    <p className="auth-subtitle">
+                      {back
+                        ? 'Save research, sync alerts and refresh live MCX data.'
+                        : 'Your gold research, one place.'}
+                    </p>
+                    {googleBlock(back ? 1 : 0)}
+                    {back && (
+                      <label className="auth-field">
+                        Name
+                        <input
+                          className="input"
+                          name="name"
+                          autoComplete="name"
+                          placeholder="Your name"
+                          required
+                          maxLength={100}
+                          disabled={busy}
+                        />
+                      </label>
+                    )}
+                    <label className="auth-field">
+                      Email
+                      <input
+                        className="input"
+                        name="email"
+                        type="email"
+                        autoComplete="email"
+                        placeholder="you@example.com"
+                        required
+                        maxLength={254}
+                        disabled={busy}
+                      />
+                    </label>
+                    <label className="auth-field">
+                      Password
+                      <PasswordInput
+                        name="password"
+                        autoComplete={
+                          back ? 'new-password' : 'current-password'
+                        }
+                        placeholder={
+                          back ? 'At least 8 characters' : 'Your password'
+                        }
+                        minLength={back ? 8 : undefined}
+                        disabled={busy}
+                        onChange={
+                          back
+                            ? (value) => setStrength(passwordStrength(value))
+                            : undefined
+                        }
+                      />
+                      {back && strength.label && (
+                        <span
+                          className="strength"
+                          data-score={strength.score}
+                          aria-live="polite"
+                        >
+                          <span className="strength-bars" aria-hidden="true">
+                            {[1, 2, 3, 4].map((bar) => (
+                              <span
+                                key={bar}
+                                className={bar <= strength.score ? 'on' : ''}
+                              />
+                            ))}
+                          </span>
+                          {strength.label}
+                        </span>
+                      )}
+                    </label>
+                    <button className="btn" type="submit" disabled={busy}>
+                      {busy
+                        ? 'Please wait…'
+                        : back
+                          ? 'Create account'
+                          : 'Log in'}
+                    </button>
+                    <p className="switch">
+                      {back ? 'Already have an account?' : 'New to Auraxis?'}{' '}
+                      <button
+                        className="signup_tog"
+                        type="button"
+                        onClick={switchFace}
+                        aria-controls={back ? 'login-face' : 'signup-face'}
+                        disabled={busy}
+                      >
+                        {back ? 'Log in' : 'Sign up'}
+                      </button>
+                    </p>
+                  </>
+                )}
+                {message && signup === back && (
+                  <p className="auth-message" id="auth-error" role="alert">
+                    {message}
                   </p>
-                </>
-              )}
-              {message && signup === back && (
-                <p className="auth-message" id="auth-error" role="alert">
-                  {message}
-                </p>
-              )}
-            </form>
-          ))}
+                )}
+              </form>
+            ))}
+          </div>
         </div>
-      </div>
-      <nav className="auth-links" aria-label="Other options">
-        <Link to="/app/recover">Forgot password?</Link>
-        <span aria-hidden="true">·</span>
-        <Link to="/app">
-          Explore without signing in <span aria-hidden="true">→</span>
-        </Link>
-      </nav>
+        <nav className="auth-links" aria-label="Other options">
+          <div className="auth-or" role="separator">
+            <span>or</span>
+          </div>
+          <Link className="auth-explore" to="/app">
+            Explore without signing in <span aria-hidden="true">→</span>
+          </Link>
+          <p>
+            Free and read-only — no account needed.{' '}
+            <Link to="/app/recover">Forgot password?</Link>
+          </p>
+        </nav>
+      </section>
     </main>
   )
 }

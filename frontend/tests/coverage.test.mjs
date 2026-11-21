@@ -9,7 +9,14 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import ts from 'typescript'
 
 const urls = {}
-for (const name of ['format', 'coverage', 'relativeValue', 'schemas', 'api']) {
+for (const name of [
+  'env',
+  'format',
+  'coverage',
+  'relativeValue',
+  'schemas',
+  'api',
+]) {
   const source = await readFile(
     new URL(`../src/lib/${name}.ts`, import.meta.url),
     'utf8',

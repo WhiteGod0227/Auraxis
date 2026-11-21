@@ -106,6 +106,8 @@ class PricePoint(ResponseModel):
     close_p10_999: float | None
     has_trade: bool
     quality_reason: str
+    volume_grams: float | None = None
+    open_interest_grams: float | None = None
 
 
 class PriceSeries(ResponseModel):

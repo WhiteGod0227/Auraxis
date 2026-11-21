@@ -79,10 +79,13 @@ function placePill(
 /** Left liquid-glass sidebar: sliding highlight, collapsible rail, mobile drawer. */
 export default function GlassSidebar({
   groups,
+  account,
   footer,
   brandTo = '/',
 }: {
   groups: SideGroup[]
+  /** Shown under the logo (account menu or log-in button). */
+  account?: ReactNode
   footer?: ReactNode
   brandTo?: string
 }) {
@@ -184,6 +187,7 @@ export default function GlassSidebar({
             </svg>
           </button>
         </div>
+        {account && <div className="g-side-account">{account}</div>}
         <nav
           className="g-side-nav"
           ref={navRef}

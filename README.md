@@ -2,9 +2,12 @@
 
 **Same gold. Different contracts. Is the gap real?**
 
-**[Live app](https://auraxis-production.up.railway.app)** · [Dashboard](https://auraxis-production.up.railway.app/app) · [Sign in / Sign up](https://auraxis-production.up.railway.app/login) · [API health](https://auraxis-production.up.railway.app/health)
+**Live deployments**
 
-Frontend and backend are hosted on Railway behind the same HTTPS origin. The hosted market database starts empty; analytics require an authorized data source.
+- **Railway** (frontend and API on one origin): [Live app](https://auraxis-production.up.railway.app) · [Dashboard](https://auraxis-production.up.railway.app/app) · [Sign in / Sign up](https://auraxis-production.up.railway.app/login) · [API health](https://auraxis-production.up.railway.app/health). The hosted market database starts empty; analytics require an authorized data source.
+- **Vercel + Railway** (frontend on Vercel, `/api` rewritten to a Railway backend with live Upstox data): [Live app](https://auraxis-ten.vercel.app) · [Dashboard](https://auraxis-ten.vercel.app/app) · [API health](https://auraxis-ten.vercel.app/health).
+
+Both use `VITE_API_BASE_URL=same-origin`; see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 Auraxis is a research dashboard for MCX gold futures — GOLDM, GOLDTEN,
 GOLDGUINEA and GOLDPETAL. It puts every contract on one price basis
@@ -17,6 +20,9 @@ explains what stands out in plain English, and backtests a simple
 > Historical research tool using MCX settlement prices — not live trading, not
 > investment advice. All screenshots use a **synthetic sample dataset**; no
 > MCX data is included in this repository.
+
+**New here? Read the [user guide](docs/USER_GUIDE.md)** — every page and feature,
+step by step.
 
 ## Highlights
 
@@ -31,7 +37,25 @@ explains what stands out in plain English, and backtests a simple
 - **Demo mode** — an 8-step guided presentation with live numbers.
 - **Automatic data** — MCX Bhavcopy files saved to your Downloads folder are
   imported within seconds; Upstox auto-refresh is built in.
-- **Light & dark themes**, a liquid-glass sidebar and an animated crow mascot
+- **Live market prices** — with an Upstox token, the Overview shows last
+  traded prices and provisional gaps that update every 30 seconds while MCX
+  is open.
+- **Practice with demo money** — every account gets ◎ 10,00,000 of practice
+  money (no cash value) to trade gaps or single products at live prices, with
+  open P&L, history, achievements and an opt-in leaderboard.
+- **On-chain gold** — tokenized gold (PAXG, XAUT) read from Ethereum and
+  compared with all four MCX products at India parity (incl. import duty),
+  with a year of daily gap history.
+- **Proof of research** — practice trades and research notes get salted
+  fingerprints, sealed hourly into a Merkle root that is timestamped in
+  Bitcoin via OpenTimestamps; anyone can verify a shared proof.
+- **Optional wallet link** — connect MetaMask (or any Ethereum wallet) on
+  your profile with Sign-In with Ethereum: a free signature, no transaction.
+- **Soulbound badges & on-chain anchors (test network)** — earned
+  achievements can be claimed as non-transferable ERC-721/ERC-5192 NFTs on
+  Base Sepolia, and every proof root is also published to the same
+  contract. The server pays the test gas; users sign nothing.
+- **Light & dark themes**, a trading-style top bar with search (press `/`) and an animated crow mascot
   (which can also be your mouse pointer).
 
 ## Tour
@@ -131,6 +155,82 @@ permission has not been established). Options:
    `.\.venv\Scripts\python.exe -m app.data.upstox --days 365`. Rows from MCX
    files are never overwritten.
 
+### Practice trading (demo money)
+
+Signed-in users get ◎ 10,00,000 of demo money on the **Practice** page (also
+reachable from the Overview's Pair check: *Practise this gap*). Trades fill
+only at the backend's own live last-traded prices while MCX is open, hold 10%
+margin and pay the same 5 bps per leg per side as the backtest. Pair trades
+cover the three same-expiry pairs; GOLDM is practised on its own. Demo money
+has no cash value and cannot be bought, withdrawn or transferred. Data lives
+in `backend/practice.sqlite3` (git-ignored); users can reset any time.
+
+### Proof of research (Bitcoin timestamps)
+
+**More → Proof of research.** Closed practice trades are certified
+automatically; saved research notes have a *Certify on Bitcoin* button. Each
+record gets a fingerprint `SHA256("auraxis-proof-leaf-v1\0" + 32-byte salt +
+exact JSON)`. Every `PROOFS_BATCH_MINUTES` the new fingerprints form a Merkle
+tree (`node = SHA256(0x01 + left + right)`); only the root is sent to the free
+OpenTimestamps calendars, which commit it to a Bitcoin block within hours.
+The backend upgrades pending stamps, checks the attestation against the real
+Bitcoin block header, and follows upgrade URLs only on known calendar domains.
+A proof file (record + exact JSON + salt + Merkle path + root + `.ots`) can be
+verified by anyone on the same page, or independently with the `.txt` and
+`.ots` files at opentimestamps.org. No wallet, key or fee is involved.
+
+### On-chain gold (read-only Web3)
+
+**More → On-chain gold** compares tokenized gold with MCX. Each PAXG (Paxos)
+or XAUT (Tether) token is one fine troy ounce on Ethereum. The backend reads
+token prices every minute (CoinGecko) and each token's circulating supply
+directly from its ERC-20 contract on Ethereum mainnet (`totalSupply`,
+`decimals` over JSON-RPC). Parity per 10 g = token price ÷ 31.1035 g × 10 ×
+(1 + India's import duty on that date; see `ONCHAIN_DUTY_SCHEDULE`). A year of
+daily token prices is paired with MCX settlements for the gap history.
+Read-only: no wallet, key or transaction is involved.
+
+### Soulbound badges and proof anchors (Base Sepolia test network)
+
+`backend/contracts/AuraxisBadges.sol` (ERC-721 + ERC-5192, every transfer
+reverts) has two operator-only functions: `mint(to, badge)` — one token per
+badge per wallet, with on-chain JSON metadata — and `anchor(root, batchId)`,
+which records `anchoredAt[root] = block.timestamp`. The backend signs
+EIP-1559 transactions itself (`app/data/evm.py`: RLP, RFC 6979, low-s;
+byte-exact against eth-account in tests) and a background loop confirms
+mints and anchors every 15 s. The verifier reads `anchoredAt` on-chain.
+
+Deployed and verified at
+[`0x7256a51Ba02FE20Bbca1Df2FA96322B5a794f884`](https://sepolia.basescan.org/address/0x7256a51Ba02FE20Bbca1Df2FA96322B5a794f884).
+To deploy your own: put a fresh `WEB3_SIGNER_KEY` in `backend/.env`, fund
+its address from a Base Sepolia faucet, then run
+`.venv/Scripts/python.exe scripts/deploy_badges.py` and set the printed
+`WEB3_CONTRACT`. `--verify ADDRESS` re-checks a deployment. The feature is
+off unless both variables are set. Testnet only: tokens have no value.
+
+### Live prices during market hours
+
+With `UPSTOX_ACCESS_TOKEN` set, the backend also polls Upstox's market-quote
+API every `LIVE_POLL_SECONDS` (default 30) while MCX is open (09:00–23:55 IST,
+Mon–Fri; set `LIVE_SESSION_END=23:30` while US daylight saving is in force).
+One request covers every gold contract, however many people have the
+dashboard open; browsers read the backend's latest snapshot from
+`GET /api/live`.
+
+The **Live market** panel on the Overview shows each product's last traded
+price per 10 g, its change since the last stored settlement, the live gap for
+every pair and how unusual it is. Live gaps are scored against the previous
+10 *settlement* sessions with exactly the same calculation as the settled
+view, so they are directly comparable, but they stay **provisional**:
+live prices are never written to the database, and once that session's
+settlement is loaded the panel steps aside. Outside market hours it shows the
+last traded prices (kept in `data_cache/upstox/live_snapshot.json` across
+restarts).
+
+Upstox may require your server's static IP to be whitelisted for the
+Analytics Token (Developer Apps console). That is simple on your own PC;
+hosted platforms often need a paid static outbound IP.
+
 How much history unlocks what:
 
 | Trading days | What works |
@@ -150,10 +250,14 @@ Key `backend/.env` settings (see `backend/.env.example` for all):
 | `BHAVCOPY_WATCH_DIR` | Folder to watch (default: your Downloads) |
 | `UPSTOX_ACCESS_TOKEN` | Enables the Upstox connector and auto-refresh |
 | `UPSTOX_INCLUDE_EXPIRED` | Expired-contract history (needs Upstox Plus) |
+| `LIVE_POLL_SECONDS` | Live price interval during market hours (default 30, `0` = off, min 5) |
+| `LIVE_SESSION_START` / `LIVE_SESSION_END` | MCX session in IST (default 09:00–23:55) |
 | `DATA_ADMIN_EMAILS` | Restrict who can import or refresh data |
 | `GOOGLE_CLIENT_ID` | Shows "Continue with Google" when set |
 | `CORS_ORIGINS` | Allowed frontend origins |
 | `AUTH_COOKIE_SECURE` | Set `true` when served over HTTPS |
+| `WEB3_CONTRACT` / `WEB3_SIGNER_KEY` | Enable badges and anchors (both required; key is a secret) |
+| `WEB3_RPC_URL` / `WEB3_CHAIN_ID` | Test network (default Base Sepolia, 84532) |
 
 The frontend reads `VITE_API_BASE_URL` (default `http://localhost:8010`).
 
@@ -181,7 +285,11 @@ original private dataset and need its exported snapshots.
 ## Limitations
 
 - Prices are daily settlements, not executable quotes; backtests assume
-  next-session settlement fills.
+  next-session settlement fills. Live prices are last traded prices, which
+  can be minutes old for thinly traded contracts (each shows its last trade
+  time).
+- Live market hours do not know MCX holidays; on a holiday the panel simply
+  shows the last session's prices.
 - Converting to ₹ per 10 g does not remove location differences (GOLDPETAL is
   quoted ex-Mumbai, the others ex-Ahmedabad). Purity adjustment is
   experimental and off by default.
@@ -193,6 +301,8 @@ original private dataset and need its exported snapshots.
 ## More documentation
 
 - [Methodology](frontend/src/pages/MethodologyPage.tsx) — also in the app under *Methodology*
+- [User guide](docs/USER_GUIDE.md)
+- [Web3 and blockchain](docs/WEB3.md) — every on-chain feature, how it works and how to verify it
 - [Demo script](docs/HACKATHON_DEMO.md)
 - [Deployment](docs/DEPLOYMENT.md)
 - [Account security and alert sync](docs/ACCOUNT_SECURITY_AND_SYNC.md)

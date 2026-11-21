@@ -68,6 +68,9 @@ export interface PricePoint {
   close_p10_999: number | null
   has_trade: boolean
   quality_reason: string
+  /** Daily traded volume and open interest (grams). */
+  volume_grams?: number | null
+  open_interest_grams?: number | null
 }
 export interface PriceSeries {
   product: string
